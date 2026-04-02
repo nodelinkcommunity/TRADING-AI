@@ -32,8 +32,9 @@ const DEFAULT_CONFIG = {
   privateKeySet: false,
   rpcUrlSet: false,
 
-  // Network
+  // Network (multi-chain support)
   chain: "arbitrumSepolia",
+  chains: ["arbitrumSepolia"],
   contractAddress: "",
 
   // Trading parameters
