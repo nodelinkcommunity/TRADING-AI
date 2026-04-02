@@ -295,10 +295,12 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,
     <div class="card-header">
       <div><div class="card-title">Step 2 &mdash; Compile & Deploy Smart Contract</div><div class="card-subtitle">Compile Solidity contracts and deploy to your selected network</div></div>
     </div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap">
-      <button class="btn btn-warning" onclick="doCompile()">Compile Contracts</button>
-      <button class="btn btn-primary" onclick="doDeploy()">Deploy to Network</button>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+      <button class="btn btn-warning" id="btnCompile" onclick="doCompile()">Compile Contracts</button>
+      <button class="btn btn-primary" id="btnDeploy" onclick="doDeploy()">Deploy to Network</button>
+      <span id="deployStatus" style="font-size:13px;margin-left:8px"></span>
     </div>
+    <div id="deployOutput" style="margin-top:12px;background:var(--bg1);border-radius:8px;padding:12px;font-family:monospace;font-size:12px;max-height:300px;overflow-y:auto;display:none;white-space:pre-wrap;line-height:1.6"></div>
     <div class="fg" style="margin-top:14px">
       <label class="fl">Contract Address <span style="color:var(--text3)">(Auto-filled after deploy)</span></label>
       <input type="text" id="inContract" placeholder="0x... (auto-populated or paste manually)">
@@ -1117,10 +1119,95 @@ async function saveConfig(){
 }
 
 // ===== COMPILE & DEPLOY =====
-async function doCompile(){await apiCall('compile','POST');}
+async function doCompile(){
+  const btn=$('btnCompile');
+  const status=$('deployStatus');
+  const output=$('deployOutput');
+  btn.disabled=true;
+  btn.textContent='⏳ Compiling...';
+  status.textContent='Compiling smart contracts...';
+  status.style.color='var(--accent)';
+  output.style.display='block';
+  output.textContent='Starting compilation...\n';
+
+  // Listen for compile logs via socket
+  const logHandler=(log)=>{
+    if(log.source==='compile'){
+      output.textContent+=log.message+'\n';
+      output.scrollTop=output.scrollHeight;
+    }
+  };
+  socket.on('log',logHandler);
+
+  // Listen for compile result
+  const resultHandler=(result)=>{
+    socket.off('log',logHandler);
+    socket.off('compileResult',resultHandler);
+    btn.disabled=false;
+    if(result.code===0){
+      btn.textContent='✅ Compiled!';
+      status.textContent='Compilation successful!';
+      status.style.color='var(--green)';
+    } else {
+      btn.textContent='❌ Failed';
+      status.textContent='Compilation failed. Check output below.';
+      status.style.color='var(--red)';
+    }
+    setTimeout(()=>{btn.textContent='Compile Contracts';},5000);
+  };
+  socket.on('compileResult',resultHandler);
+
+  // Also set a timeout in case socket event doesn't fire
+  setTimeout(()=>{socket.off('log',logHandler);socket.off('compileResult',resultHandler);btn.disabled=false;btn.textContent='Compile Contracts';},120000);
+
+  await apiCall('compile','POST');
+}
 async function doDeploy(){
-  const chain=$('cfgChain').value||'arbitrumSepolia';
+  const chain=$('cfgChain')?.value||'arbitrumSepolia';
   if(!confirm('Deploy smart contract to '+chain+'?\n\nThis will cost gas. Make sure your wallet is funded.'))return;
+
+  const btn=$('btnDeploy');
+  const status=$('deployStatus');
+  const output=$('deployOutput');
+  btn.disabled=true;
+  btn.textContent='⏳ Deploying...';
+  status.textContent='Deploying to '+chain+'...';
+  status.style.color='var(--accent)';
+  output.style.display='block';
+  output.textContent='Starting deployment...\n';
+
+  const logHandler=(log)=>{
+    if(log.source==='deploy'){
+      output.textContent+=log.message+'\n';
+      output.scrollTop=output.scrollHeight;
+    }
+  };
+  socket.on('log',logHandler);
+
+  const resultHandler=(result)=>{
+    socket.off('log',logHandler);
+    socket.off('deployResult',resultHandler);
+    btn.disabled=false;
+    if(result.code===0&&result.contractAddress){
+      btn.textContent='✅ Deployed!';
+      status.textContent='Contract deployed: '+result.contractAddress;
+      status.style.color='var(--green)';
+      $('inContract').value=result.contractAddress;
+    } else if(result.code===0){
+      btn.textContent='✅ Done';
+      status.textContent='Deployment completed. Check output for address.';
+      status.style.color='var(--green)';
+    } else {
+      btn.textContent='❌ Failed';
+      status.textContent='Deployment failed. Check output below.';
+      status.style.color='var(--red)';
+    }
+    setTimeout(()=>{btn.textContent='Deploy to Network';},8000);
+  };
+  socket.on('deployResult',resultHandler);
+
+  setTimeout(()=>{socket.off('log',logHandler);socket.off('deployResult',resultHandler);btn.disabled=false;btn.textContent='Deploy to Network';},180000);
+
   await apiCall('deploy','POST');
 }
 
