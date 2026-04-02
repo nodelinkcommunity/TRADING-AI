@@ -44,6 +44,20 @@ class PriceMonitor {
     this.dexConfigs = dexConfigs;
     this.priceCache = new Map();
     this.lastUpdate = new Map();
+    this.errorCount = {};  // Track errors to suppress spam
+  }
+
+  /**
+   * Log error only once per unique key, then suppress
+   */
+  _logErrorOnce(key, message) {
+    if (!this.errorCount[key]) {
+      this.errorCount[key] = 0;
+    }
+    this.errorCount[key]++;
+    if (this.errorCount[key] <= 1) {
+      console.warn(`[WARN] ${message} (further errors suppressed)`);
+    }
   }
 
   /**
@@ -67,7 +81,8 @@ class PriceMonitor {
 
       return amountOut;
     } catch (error) {
-      console.error(`V3 quote error: ${error.message}`);
+      const key = `v3-${quoterAddress}-${tokenIn}-${tokenOut}-${fee}`;
+      this._logErrorOnce(key, `V3 quote failed: ${tokenIn.slice(0,8)}.../${tokenOut.slice(0,8)}... fee=${fee} on ${quoterAddress.slice(0,8)}...`);
       return null;
     }
   }
@@ -90,7 +105,8 @@ class PriceMonitor {
 
       return amounts[1];
     } catch (error) {
-      console.error(`V2 quote error: ${error.message}`);
+      const key = `v2-${routerAddress}-${tokenIn}-${tokenOut}`;
+      this._logErrorOnce(key, `V2 quote failed: ${tokenIn.slice(0,8)}.../${tokenOut.slice(0,8)}... on ${routerAddress.slice(0,8)}...`);
       return null;
     }
   }
@@ -598,10 +614,13 @@ class FlashloanBot {
         }
       }
     } else {
-      // In trang thai moi 10 lan scan
-      if (this.stats.scansCompleted % 10 === 0) {
+      // In trang thai moi 5 lan scan
+      if (this.stats.scansCompleted % 5 === 0) {
+        const uptime = Math.floor((Date.now() - this.stats.startTime) / 1000);
+        const mins = Math.floor(uptime / 60);
+        const secs = uptime % 60;
         console.log(
-          `[SCAN #${this.stats.scansCompleted}] No opportunities (${scanTime}ms)`
+          `[SCAN #${this.stats.scansCompleted}] Scanning... no opportunities yet | ${scanTime}ms | uptime ${mins}m${secs}s | found: ${this.stats.opportunitiesFound}`
         );
       }
     }
