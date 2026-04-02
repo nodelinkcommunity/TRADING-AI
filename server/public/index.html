@@ -1333,16 +1333,19 @@ async function refreshBalances(){
 
     const scanInterval=parseInt($('cfgScan')?.value||3);
     const maxGas=parseInt($('cfgGas')?.value||5);
+    const flashAmount=parseInt($('cfgFlash')?.value||50000);
+    // Base recommendations at default config (50K loan, 5 gwei, 3s scan)
     const recMap={ETH:0.01,MATIC:5,BNB:0.05,AVAX:0.5,MNT:5,'ETH (testnet)':0.1};
 
     let html='';
     for(const b of res.balances){
       const balNum=parseFloat(b.balance)||0;
       const isError=b.balance==='error';
-      const gasMultiplier=maxGas/5;
-      const scanMultiplier=3/scanInterval;
+      const gasMultiplier=maxGas/5;              // higher gas limit → need more
+      const scanMultiplier=3/scanInterval;        // faster scan → more RPC calls → more gas
+      const loanMultiplier=Math.max(1,flashAmount/50000); // larger loan → complex swaps → more gas
       const baseRec=recMap[b.symbol]||0.01;
-      const recNum=baseRec*gasMultiplier*scanMultiplier;
+      const recNum=baseRec*gasMultiplier*scanMultiplier*loanMultiplier;
 
       // Format balance
       const balDisplay=isError?'—':balNum.toFixed(6);
