@@ -57,6 +57,34 @@ module.exports = {
       chainId: 137,
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
     },
+
+    // BSC (BNB Smart Chain)
+    bsc: {
+      url: process.env.BSC_RPC_URL || "https://bsc-dataseed1.binance.org",
+      chainId: 56,
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+    },
+
+    // Avalanche C-Chain
+    avalanche: {
+      url: process.env.AVAX_RPC_URL || "https://api.avax.network/ext/bc/C/rpc",
+      chainId: 43114,
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+    },
+
+    // Mantle
+    mantle: {
+      url: process.env.MANTLE_RPC_URL || "https://rpc.mantle.xyz",
+      chainId: 5000,
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+    },
+
+    // Scroll
+    scroll: {
+      url: process.env.SCROLL_RPC_URL || "https://rpc.scroll.io",
+      chainId: 534352,
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+    },
   },
 
   etherscan: {
@@ -64,6 +92,10 @@ module.exports = {
       arbitrumOne: process.env.ARBISCAN_API_KEY || "",
       base: process.env.BASESCAN_API_KEY || "",
       polygon: process.env.POLYGONSCAN_API_KEY || "",
+      bsc: process.env.BSCSCAN_API_KEY || "",
+      avalanche: process.env.SNOWTRACE_API_KEY || "",
+      mantle: process.env.MANTLE_API_KEY || "",
+      scroll: process.env.SCROLLSCAN_API_KEY || "",
     },
   },
 };

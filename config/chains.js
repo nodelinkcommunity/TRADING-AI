@@ -44,6 +44,55 @@ const CHAINS = {
     avgBlockTimeMs: 2000,
   },
 
+  bsc: {
+    name: "BNB Smart Chain",
+    chainId: 56,
+    rpc: process.env.BSC_RPC_URL || "https://bsc-dataseed1.binance.org",
+    explorer: "https://bscscan.com",
+    nativeCurrency: { name: "BNB", symbol: "BNB", decimals: 18 },
+    // No Aave on BSC - uses Venus Protocol instead
+    venusComptroller: "0xfD36E2c2a6789Db23113685031d7F16329158384",
+    multicall3: "0xcA11bde05977b3631167028862bE2a173976CA11",
+    avgBlockTimeMs: 3000,
+  },
+
+  avalanche: {
+    name: "Avalanche C-Chain",
+    chainId: 43114,
+    rpc: process.env.AVAX_RPC_URL || "https://api.avax.network/ext/bc/C/rpc",
+    explorer: "https://snowtrace.io",
+    nativeCurrency: { name: "AVAX", symbol: "AVAX", decimals: 18 },
+    aavePoolProvider: "0xa97684ead0e402dC232d5A977953DF7ECBaB3CDb",
+    aavePool: "0x794a61358D6845594F94dc1DB02A252b5b4814aD",
+    aaveDataProvider: "0x69FA688f1Dc47d4B5d8029D5a35FB7a548310654",
+    multicall3: "0xcA11bde05977b3631167028862bE2a173976CA11",
+    avgBlockTimeMs: 2000,
+  },
+
+  mantle: {
+    name: "Mantle",
+    chainId: 5000,
+    rpc: process.env.MANTLE_RPC_URL || "https://rpc.mantle.xyz",
+    explorer: "https://explorer.mantle.xyz",
+    nativeCurrency: { name: "MNT", symbol: "MNT", decimals: 18 },
+    // No Aave on Mantle - uses Lendle (Aave fork) instead
+    lendlePool: "0xCFa5aE7c2CE8Fadc6426C1ff872cA45378Fb7cF3",
+    multicall3: "0xcA11bde05977b3631167028862bE2a173976CA11",
+    avgBlockTimeMs: 2000,
+  },
+
+  scroll: {
+    name: "Scroll",
+    chainId: 534352,
+    rpc: process.env.SCROLL_RPC_URL || "https://rpc.scroll.io",
+    explorer: "https://scrollscan.com",
+    nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
+    aavePoolProvider: "0x69850D0B276776781C063771b161bd8894BCdD04",
+    aavePool: "0x11fCfe756c05AD438e312a7fd934381537D3cFfe",
+    multicall3: "0xcA11bde05977b3631167028862bE2a173976CA11",
+    avgBlockTimeMs: 3000,
+  },
+
   // ============ Testnets ============
   arbitrumSepolia: {
     name: "Arbitrum Sepolia",
