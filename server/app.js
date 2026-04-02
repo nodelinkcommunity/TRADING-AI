@@ -390,6 +390,35 @@ app.post("/api/strategy/:name", (req, res) => {
   saveConfig();
   const status = config.strategies[name].enabled ? "enabled" : "disabled";
   addLog("info", "server", `Strategy "${name}" ${status}`);
+
+  // Auto-stop bot when strategy is disabled
+  if (!config.strategies[name].enabled) {
+    const strategyToBots = {
+      dexArbitrage: "arbitrage",
+      triangular: "arbitrage",
+      liquidation: "liquidation",
+      stablecoin: "stablecoin",
+      newPool: "arbitrage",
+      oracleLag: "arbitrage",
+      yieldRebalance: "arbitrage",
+    };
+    const botName = strategyToBots[name];
+    if (botName && botProcesses[botName]) {
+      // For arbitrage bot: only stop if ALL related strategies are off
+      if (botName === "arbitrage") {
+        const arbStrategies = ["dexArbitrage", "triangular", "newPool", "oracleLag", "yieldRebalance"];
+        const anyEnabled = arbStrategies.some((s) => config.strategies[s]?.enabled);
+        if (!anyEnabled) {
+          stopBot("arbitrage");
+          addLog("info", "server", `Auto-stopped "arbitrage" bot (all related strategies disabled)`);
+        }
+      } else {
+        stopBot(botName);
+        addLog("info", "server", `Auto-stopped "${botName}" bot (strategy "${name}" disabled)`);
+      }
+    }
+  }
+
   res.json({ success: true, strategy: config.strategies[name] });
 });
 
