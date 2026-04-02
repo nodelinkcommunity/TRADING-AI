@@ -1,7 +1,7 @@
 #!/bin/bash
 # ============================================
 #  FLASHLOAN-AI — Double-click to Start
-#  Tự động khởi động server + mở Dashboard
+#  Auto-restart with PM2 + open Dashboard
 # ============================================
 
 cd "$(dirname "$0")"
@@ -32,15 +32,36 @@ if [ ! -d "node_modules" ]; then
     echo ""
 fi
 
-# Open browser after 2 seconds
-(sleep 2 && open "http://localhost:3000") &
+# Create logs directory
+mkdir -p logs
 
-echo "🚀 Server starting on http://localhost:3000"
-echo "📊 Dashboard will open in your browser automatically"
+# Check if already running via PM2
+if npx pm2 describe flashloan-server > /dev/null 2>&1; then
+    echo "⚡ Bot is already running! Restarting..."
+    npx pm2 restart flashloan-server
+else
+    echo "🚀 Starting with PM2 (auto-restart enabled)..."
+    npx pm2 start ecosystem.config.js
+fi
+
 echo ""
-echo "To stop: close this window or press Ctrl+C"
+echo "============================================"
+echo "  ✅ FLASHLOAN-AI is running!"
+echo "============================================"
+echo ""
+echo "  Dashboard:  http://localhost:3000"
+echo "  Status:     npm run pm2:status"
+echo "  Logs:       npm run pm2:logs"
+echo "  Stop:       npm run pm2:stop"
+echo "  Restart:    npm run pm2:restart"
+echo ""
+echo "  Bot auto-restarts on crash."
+echo "  Close this window — bot keeps running!"
 echo "============================================"
 echo ""
 
-# Start server
-node server/app.js
+# Open browser
+(sleep 2 && open "http://localhost:3000") &
+
+# Show live logs (optional — user can close window)
+npx pm2 logs flashloan-server --lines 50

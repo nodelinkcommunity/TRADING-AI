@@ -22,16 +22,30 @@ if not exist "node_modules" (
     echo.
 )
 
-:: Open browser after 2 seconds
+:: Create logs directory
+if not exist "logs" mkdir logs
+
+:: Open browser
 start "" "http://localhost:3000"
 
-echo Server starting on http://localhost:3000
-echo Dashboard will open in your browser automatically
+:: Start with PM2 (auto-restart)
+echo Starting with PM2 (auto-restart enabled)...
+npx pm2 start ecosystem.config.js
 echo.
-echo To stop: close this window or press Ctrl+C
+echo ============================================
+echo   FLASHLOAN-AI is running!
+echo ============================================
+echo.
+echo   Dashboard:  http://localhost:3000
+echo   Status:     npm run pm2:status
+echo   Logs:       npm run pm2:logs
+echo   Stop:       npm run pm2:stop
+echo.
+echo   Bot auto-restarts on crash.
+echo   Close this window - bot keeps running!
 echo ============================================
 echo.
 
-:: Start server
-node server/app.js
+:: Show live logs
+npx pm2 logs flashloan-server --lines 50
 pause
