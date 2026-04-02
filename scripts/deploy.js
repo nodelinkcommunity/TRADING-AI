@@ -56,7 +56,11 @@ const DEX_ROUTERS = {
 };
 
 async function main() {
-  const [deployer] = await hre.ethers.getSigners();
+  const signers = await hre.ethers.getSigners();
+  if (!signers || signers.length === 0) {
+    throw new Error("No wallet configured. Please save your Private Key in Dashboard → Setup first.");
+  }
+  const deployer = signers[0];
   const network = await hre.ethers.provider.getNetwork();
   const chainId = Number(network.chainId);
 

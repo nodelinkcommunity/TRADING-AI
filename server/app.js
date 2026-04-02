@@ -490,6 +490,13 @@ app.post("/api/compile", (req, res) => {
 
 // POST deploy smart contract
 app.post("/api/deploy", (req, res) => {
+  // Check if credentials are configured
+  const envVars = loadEnvVars();
+  if (!envVars.PRIVATE_KEY || envVars.PRIVATE_KEY.includes("YOUR_")) {
+    addLog("error", "deploy", "Private key not configured. Go to Setup → Save Credentials first.");
+    return res.status(400).json({ error: "Private key not configured. Save credentials in Setup first." });
+  }
+
   const network = config.chain || "arbitrumSepolia";
   addLog("info", "deploy", `Deploying contract to ${network}...`);
 
