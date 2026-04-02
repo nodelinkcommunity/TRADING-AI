@@ -7,7 +7,12 @@
  */
 
 const { ethers } = require("ethers");
+require("dotenv").config();
 const config = require("../config/config.json");
+
+// Override config with .env values (Dashboard saves to .env)
+if (process.env.PRIVATE_KEY) config.privateKey = process.env.PRIVATE_KEY;
+if (process.env.ARBITRUM_RPC_URL) config.rpcUrl = process.env.ARBITRUM_RPC_URL;
 
 // ============ ABI Definitions ============
 

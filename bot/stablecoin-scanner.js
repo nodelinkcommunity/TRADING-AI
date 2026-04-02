@@ -7,6 +7,7 @@
  */
 
 const { ethers } = require("ethers");
+require("dotenv").config();
 
 // ============ Curve Pool ABI (toi uu cho stable swap) ============
 
