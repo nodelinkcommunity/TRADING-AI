@@ -495,7 +495,7 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,
         </div>
       </div>
     </div>
-    <button class="btn btn-primary" onclick="saveConfig()" style="margin-top:4px">Save Configuration</button>
+    <button class="btn btn-primary" id="btnSaveConfig" onclick="saveConfig(this)" style="margin-top:4px">Save Configuration</button>
   </div>
 
   <div class="card" id="walletBalanceCard">
@@ -1414,24 +1414,33 @@ async function saveCredentials(){
 }
 
 // ===== CONFIG =====
-async function saveConfig(){
+async function saveConfig(btn){
   const chains=[...document.querySelectorAll('#cfgChains input:checked')].map(cb=>cb.value);
   if(chains.length===0){alert('Please select at least one network.');return;}
-  const res=await apiCall('config','POST',{
-    chain:chains[0],
-    chains:chains,
-    autoExecute:$('cfgAutoExec').checked,
-    minProfitBps:parseInt($('cfgProfit').value),
-    maxSlippageBps:parseInt($('cfgSlip').value),
-    scanIntervalMs:parseInt($('cfgScan').value)*1000,
-    maxGasGwei:parseInt($('cfgGas').value),
-    flashAmountUsd:parseInt($('cfgFlash').value),
-    contractAddress:$('inContract').value,
-  });
-  if(res.success){
-    const btn=event.target;
-    btn.textContent='Saved!';btn.style.background='var(--green)';
-    setTimeout(()=>{btn.textContent='Save Configuration';btn.style.background='';},2000);
+  btn=btn||$('btnSaveConfig');
+  btn.disabled=true;btn.textContent='Saving...';
+  try{
+    const res=await apiCall('config','POST',{
+      chain:chains[0],
+      chains:chains,
+      autoExecute:$('cfgAutoExec').checked,
+      minProfitBps:parseInt($('cfgProfit').value),
+      maxSlippageBps:parseInt($('cfgSlip').value),
+      scanIntervalMs:parseInt($('cfgScan').value)*1000,
+      maxGasGwei:parseInt($('cfgGas').value),
+      flashAmountUsd:parseInt($('cfgFlash').value),
+      contractAddress:$('inContract').value,
+    });
+    if(res.success){
+      btn.textContent='✅ Saved!';btn.style.background='var(--green)';
+      setTimeout(()=>{btn.textContent='Save Configuration';btn.style.background='';btn.disabled=false;},2000);
+    } else {
+      btn.textContent='❌ Failed';btn.style.background='var(--red)';
+      setTimeout(()=>{btn.textContent='Save Configuration';btn.style.background='';btn.disabled=false;},2000);
+    }
+  }catch(e){
+    btn.textContent='❌ Error';btn.style.background='var(--red)';
+    setTimeout(()=>{btn.textContent='Save Configuration';btn.style.background='';btn.disabled=false;},2000);
   }
 }
 
