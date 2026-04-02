@@ -217,7 +217,11 @@ function startBot(botName) {
 
   const proc = spawn("node", [botPath], {
     cwd: path.join(__dirname, ".."),
-    env: { ...process.env, ...loadEnvVars() },
+    env: {
+      ...process.env,
+      ...loadEnvVars(),
+      ...(config.contractAddress ? { CONTRACT_ADDRESS: config.contractAddress } : {}),
+    },
     stdio: ["pipe", "pipe", "pipe"],
   });
 

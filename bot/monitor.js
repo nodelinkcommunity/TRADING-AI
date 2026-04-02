@@ -463,12 +463,28 @@ class FlashloanBot {
     console.log("   Arbitrage Monitoring System");
     console.log("====================================\n");
 
+    // Override config with .env values (Dashboard saves credentials to .env)
+    if (process.env.PRIVATE_KEY) this.config.privateKey = process.env.PRIVATE_KEY;
+    if (process.env.ARBITRUM_RPC_URL) this.config.rpcUrl = process.env.ARBITRUM_RPC_URL;
+    if (process.env.CONTRACT_ADDRESS) this.config.contractAddress = process.env.CONTRACT_ADDRESS;
+
+    // Validate required config
+    if (!this.config.privateKey || this.config.privateKey.includes("YOUR_")) {
+      throw new Error("Private key not configured. Go to Dashboard → Setup to enter your private key.");
+    }
+
     // Setup provider
     this.provider = new ethers.JsonRpcProvider(this.config.rpcUrl);
     const network = await this.provider.getNetwork();
-    console.log(
-      `Connected to: ${network.name} (chainId: ${network.chainId})`
-    );
+    const chainId = Number(network.chainId);
+    console.log(`Connected to: ${network.name} (chainId: ${chainId})`);
+
+    // Detect testnet and load appropriate config
+    const isTestnet = [421614, 84532, 11155111].includes(chainId);
+    if (isTestnet) {
+      console.log("⚠️  TESTNET MODE — Using testnet DEX addresses");
+      this._loadTestnetConfig(chainId);
+    }
 
     // Setup wallet
     this.wallet = new ethers.Wallet(this.config.privateKey, this.provider);
@@ -483,14 +499,53 @@ class FlashloanBot {
       this.config.dexConfigs
     );
     this.finder = new OpportunityFinder(this.priceMonitor, this.config);
-    this.executor = new ArbitrageExecutor(
-      this.provider,
-      this.wallet,
-      this.config.contractAddress,
-      this.config
-    );
+
+    // Setup executor only if contract address is valid
+    if (this.config.contractAddress && !this.config.contractAddress.includes("YOUR_")) {
+      this.executor = new ArbitrageExecutor(
+        this.provider,
+        this.wallet,
+        this.config.contractAddress,
+        this.config
+      );
+      console.log(`Contract: ${this.config.contractAddress}`);
+    } else {
+      this.executor = null;
+      console.log("⚠️  No contract address — Monitor-only mode (no execution)");
+    }
 
     console.log("\nBot initialized successfully!\n");
+  }
+
+  /**
+   * Load testnet-specific DEX and token addresses
+   * Testnet co it DEX va token, chi co Uniswap V3 tren Arbitrum Sepolia
+   */
+  _loadTestnetConfig(chainId) {
+    if (chainId === 421614) {
+      // Arbitrum Sepolia - Uniswap V3 testnet deployment
+      this.config.dexConfigs = {
+        uniswapV3: {
+          type: "v3",
+          router: "0x101F443B4d1b059569D643917553c771E1b9663E",
+          quoter: "0x2779a0CC1c3e0E44D2542EC3e79e3864Ae93Ef0B",
+          fees: [500, 3000, 10000],
+        },
+      };
+      // Testnet tokens (Aave V3 testnet faucet tokens)
+      this.config.tokenPairs = [
+        {
+          name: "WETH/USDC (Testnet)",
+          tokenA: "0x980B62Da83eFf3D4576C647993b0c1D7faf17c73", // WETH on Arb Sepolia
+          tokenB: "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d", // USDC on Arb Sepolia
+          decimals: 18,
+          amounts: [0.01, 0.05, 0.1],
+        },
+      ];
+      console.log("Loaded Arbitrum Sepolia testnet config");
+      console.log("DEXes: Uniswap V3 (testnet)");
+      console.log("Pairs: WETH/USDC (testnet tokens)");
+    }
   }
 
   async scanOnce() {
@@ -536,7 +591,7 @@ class FlashloanBot {
       );
 
       // Thuc hien neu vuot nguong
-      if (this.config.autoExecute && best.profitBps >= this.config.minProfitBps) {
+      if (this.executor && this.config.autoExecute && best.profitBps >= this.config.minProfitBps) {
         const result = await this.executor.execute(best);
         if (result && result.success) {
           this.stats.tradesExecuted++;
