@@ -567,6 +567,59 @@ app.post("/api/deploy", (req, res) => {
   res.json({ success: true, message: `Deployment to ${network} started. Check logs for progress.` });
 });
 
+// GET wallet balances across chains
+app.get("/api/balances", async (req, res) => {
+  const { ethers } = require("ethers");
+  const envVars = loadEnvVars();
+  const pk = envVars.PRIVATE_KEY;
+  if (!pk || pk.includes("YOUR_")) {
+    return res.status(400).json({ error: "Private key not configured" });
+  }
+
+  const chainRpcs = {
+    arbitrumSepolia: { rpc: "https://sepolia-rollup.arbitrum.io/rpc", symbol: "ETH", name: "Arbitrum Sepolia", decimals: 18 },
+    arbitrum: { rpc: envVars.ARBITRUM_RPC_URL || "https://arb1.arbitrum.io/rpc", symbol: "ETH", name: "Arbitrum One", decimals: 18 },
+    base: { rpc: envVars.BASE_RPC_URL || "https://mainnet.base.org", symbol: "ETH", name: "Base", decimals: 18 },
+    baseSepolia: { rpc: "https://sepolia.base.org", symbol: "ETH", name: "Base Sepolia", decimals: 18 },
+    polygon: { rpc: envVars.POLYGON_RPC_URL || "https://polygon-rpc.com", symbol: "MATIC", name: "Polygon", decimals: 18 },
+    bsc: { rpc: envVars.BSC_RPC_URL || "https://bsc-dataseed1.binance.org", symbol: "BNB", name: "BSC", decimals: 18 },
+    avalanche: { rpc: envVars.AVAX_RPC_URL || "https://api.avax.network/ext/bc/C/rpc", symbol: "AVAX", name: "Avalanche", decimals: 18 },
+    mantle: { rpc: envVars.MANTLE_RPC_URL || "https://rpc.mantle.xyz", symbol: "MNT", name: "Mantle", decimals: 18 },
+    scroll: { rpc: envVars.SCROLL_RPC_URL || "https://rpc.scroll.io", symbol: "ETH", name: "Scroll", decimals: 18 },
+  };
+
+  const chains = (req.query.chains || "").split(",").filter(Boolean);
+  const wallet = new ethers.Wallet(pk);
+  const address = wallet.address;
+  const results = [];
+
+  for (const chain of chains) {
+    const info = chainRpcs[chain];
+    if (!info) continue;
+    try {
+      const provider = new ethers.JsonRpcProvider(info.rpc);
+      const balance = await provider.getBalance(address);
+      results.push({
+        chain,
+        name: info.name,
+        symbol: info.symbol,
+        balance: ethers.formatEther(balance),
+        balanceRaw: balance.toString(),
+      });
+    } catch (err) {
+      results.push({
+        chain,
+        name: info.name,
+        symbol: info.symbol,
+        balance: "error",
+        error: err.message,
+      });
+    }
+  }
+
+  res.json({ success: true, address, balances: results });
+});
+
 // GET AI engine status
 app.get("/api/ai/status", (req, res) => {
   // AI runs inside the arbitrage bot process, so we return cached status

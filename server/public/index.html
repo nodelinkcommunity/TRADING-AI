@@ -481,6 +481,30 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,
     </div>
     <button class="btn btn-primary" onclick="saveConfig()" style="margin-top:4px">Save Configuration</button>
   </div>
+
+  <div class="card" id="walletBalanceCard">
+    <div class="card-header">
+      <div><div class="card-title">Wallet Gas Balance</div><div class="card-subtitle">Required gas tokens per selected chain. Click "Refresh" to check live balances.</div></div>
+      <button class="btn btn-sm" onclick="refreshBalances()" id="btnRefreshBal" style="font-size:11px;padding:4px 12px">🔄 Refresh Balances</button>
+    </div>
+    <div id="balanceTable" style="margin-top:8px">
+      <table class="tbl" style="font-size:12px">
+        <thead><tr>
+          <th>Chain</th>
+          <th>Gas Token</th>
+          <th style="text-align:right">Balance</th>
+          <th style="text-align:right">Recommended</th>
+          <th>Status</th>
+        </tr></thead>
+        <tbody id="balanceRows">
+          <tr><td colspan="5" style="color:var(--text3);text-align:center;padding:16px">Select networks above and click "Refresh Balances"</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div style="margin-top:8px;font-size:11px;color:var(--text3)">
+      💡 Recommended amounts based on your config: Scan Interval × Max Gas Price × ~500 transactions/day. Lower scan intervals or higher gas limits need more gas.
+    </div>
+  </div>
 </div>
 
 <!-- ========== ALL 7 STRATEGIES ========== -->
@@ -1276,6 +1300,73 @@ function updateGasWarning(){
   }
 }
 $('cfgAutoExec').addEventListener('change',updateAutoLabel);
+
+// ===== WALLET BALANCES =====
+async function refreshBalances(){
+  const btn=$('btnRefreshBal');
+  btn.disabled=true;btn.textContent='⏳ Checking...';
+  const selected=[...document.querySelectorAll('#cfgChains input:checked')].map(cb=>cb.value);
+  if(selected.length===0){
+    $('balanceRows').innerHTML='<tr><td colspan="5" style="color:var(--text3);text-align:center;padding:16px">No networks selected</td></tr>';
+    btn.disabled=false;btn.textContent='🔄 Refresh Balances';
+    return;
+  }
+  try{
+    const res=await apiCall('balances?chains='+selected.join(','),'GET');
+    if(!res.success){throw new Error(res.error||'Failed');}
+
+    // Calculate recommended amounts based on config
+    const scanInterval=parseInt($('cfgScan')?.value||3);
+    const maxGas=parseInt($('cfgGas')?.value||5);
+    const txPerDay=Math.round(86400/scanInterval);
+    // Estimate: ~200K gas per tx, maxGas gwei, recommend enough for 1 day of scanning + 50 trades
+    const gasPerTx=200000;
+
+    const recMap={
+      ETH:0.01,MATIC:5,BNB:0.05,AVAX:0.5,MNT:5,'ETH (testnet)':0.1
+    };
+
+    let html='';
+    for(const b of res.balances){
+      const bal=b.balance==='error'?'❌ Error':parseFloat(b.balance).toFixed(6);
+      const balNum=parseFloat(b.balance)||0;
+      // Recommended: base amount adjusted by gas config
+      const gasMultiplier=maxGas/5; // relative to default 5 gwei
+      const scanMultiplier=3/scanInterval; // relative to default 3s
+      const baseRec=recMap[b.symbol]||0.01;
+      const recommended=(baseRec*gasMultiplier*scanMultiplier).toFixed(4);
+
+      let status,statusColor;
+      if(b.balance==='error'){
+        status='⚠️ RPC Error';statusColor='var(--yellow)';
+      } else if(balNum>=recommended*2){
+        status='✅ Good';statusColor='var(--green)';
+      } else if(balNum>=recommended*0.5){
+        status='⚠️ Low';statusColor='var(--yellow)';
+      } else if(balNum>0){
+        status='🔴 Very Low';statusColor='var(--red)';
+      } else {
+        status='❌ Empty';statusColor='var(--red)';
+      }
+
+      html+=`<tr>
+        <td><strong>${b.name}</strong></td>
+        <td>${b.symbol}</td>
+        <td style="text-align:right;font-family:monospace;font-weight:600">${bal} ${b.symbol}</td>
+        <td style="text-align:right;font-family:monospace;color:var(--text3)">~${recommended} ${b.symbol}</td>
+        <td style="color:${statusColor};font-weight:600;font-size:11px">${status}</td>
+      </tr>`;
+    }
+
+    // Add wallet address row
+    html+=`<tr><td colspan="5" style="font-size:11px;color:var(--text3);padding-top:8px">Wallet: <code style="color:var(--accent)">${res.address}</code></td></tr>`;
+
+    $('balanceRows').innerHTML=html;
+  }catch(e){
+    $('balanceRows').innerHTML='<tr><td colspan="5" style="color:var(--red);text-align:center;padding:16px">'+e.message+'</td></tr>';
+  }
+  btn.disabled=false;btn.textContent='🔄 Refresh Balances';
+}
 
 // ===== STRATEGY TOGGLES =====
 async function toggleStrat(name,enabled){
