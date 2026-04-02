@@ -9,6 +9,7 @@
 const { ethers } = require("ethers");
 require("dotenv").config();
 const config = require("../config/config.json");
+const { AIEngine } = require("./ai");
 
 // Override config with .env values (Dashboard saves to .env)
 if (process.env.PRIVATE_KEY) config.privateKey = process.env.PRIVATE_KEY;
@@ -530,6 +531,15 @@ class FlashloanBot {
       console.log("⚠️  No contract address — Monitor-only mode (no execution)");
     }
 
+    // Initialize AI Engine
+    try {
+      this.ai = new AIEngine(this.provider);
+      await this.ai.initialize();
+    } catch (aiError) {
+      console.warn("[AI] AI Engine failed to initialize:", aiError.message);
+      this.ai = null;
+    }
+
     console.log("\nBot initialized successfully!\n");
   }
 
@@ -606,12 +616,48 @@ class FlashloanBot {
         `Best: ${best.type} | Profit: ${best.profitBps} bps | Steps: ${best.steps.length}`
       );
 
-      // Thuc hien neu vuot nguong
-      if (this.executor && this.config.autoExecute && best.profitBps >= this.config.minProfitBps) {
+      // AI Analysis
+      let aiAnalysis = null;
+      if (this.ai) {
+        try {
+          const feeData = await this.provider.getFeeData();
+          aiAnalysis = await this.ai.analyze(best, {
+            gasPrice: feeData.gasPrice ? Number(feeData.gasPrice) : 0,
+            maxSlippage: this.config.maxSlippageBps || 50,
+          });
+
+          console.log(
+            `[AI] Score: ${aiAnalysis.score}/100 | ${aiAnalysis.recommendation.action} | ${aiAnalysis.reasoning}`
+          );
+
+          // Feed price data to market analyzer
+          for (const step of best.steps) {
+            if (step.expectedOut) {
+              this.ai.marketAnalyzer.addPrice(
+                step.tokenOut,
+                step.expectedOut,
+                Date.now()
+              );
+            }
+          }
+        } catch (aiErr) {
+          console.warn("[AI] Analysis error:", aiErr.message);
+        }
+      }
+
+      // Thuc hien neu vuot nguong (with AI gate when available)
+      const aiApproved = !aiAnalysis || aiAnalysis.shouldExecute;
+      if (this.executor && this.config.autoExecute && best.profitBps >= this.config.minProfitBps && aiApproved) {
         const result = await this.executor.execute(best);
         if (result && result.success) {
           this.stats.tradesExecuted++;
         }
+        // Record result for AI learning
+        if (this.ai && result) {
+          this.ai.recordResult(best, result);
+        }
+      } else if (this.executor && this.config.autoExecute && !aiApproved) {
+        console.log("[AI] Execution blocked by AI analysis (score too low or risk too high)");
       }
     } else {
       // In trang thai moi 5 lan scan
@@ -665,6 +711,11 @@ class FlashloanBot {
 
   stop() {
     this.isRunning = false;
+
+    // Stop AI engine
+    if (this.ai) {
+      try { this.ai.stop(); } catch (_) {}
+    }
 
     const runtime = Date.now() - this.stats.startTime;
     const minutes = Math.floor(runtime / 60000);

@@ -97,6 +97,15 @@ const DEFAULT_CONFIG = {
 let config = loadConfig();
 let botProcesses = {};
 let logs = [];
+let aiStatus = {
+  isRunning: false,
+  regime: { regime: "UNKNOWN", volatility: 0, trend: 0, confidence: 0, bestStrategies: ["dexArbitrage"], riskLevel: { level: "UNKNOWN", score: 50, action: "CAUTIOUS" } },
+  gasPrediction: { predicted: 0, current: 0, avg: 0, trend: "STABLE", confidence: 0, recommendation: "NORMAL" },
+  scorerSummary: { totalTrades: 0, successCount: 0, winRate: 0, dexStats: {}, hourStats: {} },
+  whaleActivity: { totalVolume: 0, swapCount: 0, buyPressure: 50, sellPressure: 50, impactEstimate: "NONE" },
+  sandwichSummary: { knownAttackers: 0, recentPatterns: 0, totalPatterns: 0 },
+  recentAnalyses: [],
+};
 let stats = {
   startTime: null,
   scansCompleted: 0,
@@ -303,6 +312,34 @@ function parseLogForStats(line) {
   if (lower.includes("scan")) stats.scansCompleted++;
   if (lower.includes("opportunit") || lower.includes("found")) stats.opportunitiesFound++;
   if (lower.includes("success") || lower.includes("executed") || lower.includes("trade")) stats.tradesExecuted++;
+
+  // Parse AI log lines: [AI] Score: 75/100 | EXECUTE | ...
+  if (line.startsWith("[AI] Score:")) {
+    try {
+      const scoreMatch = line.match(/Score:\s*(\d+)\/100/);
+      const actionMatch = line.match(/\|\s*(EXECUTE|WATCH|SKIP)\s*\|/);
+      if (scoreMatch) {
+        const score = parseInt(scoreMatch[1]);
+        const action = actionMatch ? actionMatch[1] : "WATCH";
+        const reasoning = line.replace("[AI] ", "");
+
+        // Update recent analyses in aiStatus
+        aiStatus.recentAnalyses.push({
+          score,
+          recommendation: { action },
+          reasoning,
+          timestamp: Date.now(),
+        });
+        if (aiStatus.recentAnalyses.length > 10) aiStatus.recentAnalyses.shift();
+        aiStatus.isRunning = true;
+      }
+    } catch (_) {}
+  }
+
+  // Parse AI engine ready
+  if (line.includes("[AI] AI Engine ready")) {
+    aiStatus.isRunning = true;
+  }
 }
 
 // ============ MIDDLEWARE ============
@@ -529,6 +566,15 @@ app.post("/api/deploy", (req, res) => {
   res.json({ success: true, message: `Deployment to ${network} started. Check logs for progress.` });
 });
 
+// GET AI engine status
+app.get("/api/ai/status", (req, res) => {
+  // AI runs inside the arbitrage bot process, so we return cached status
+  res.json({
+    success: true,
+    aiStatus: aiStatus,
+  });
+});
+
 // GET health check
 app.get("/api/health", (req, res) => {
   res.json({
@@ -558,6 +604,7 @@ setInterval(() => {
     stats.uptime = Math.floor((Date.now() - stats.startTime) / 1000);
   }
   io.emit("stats", stats);
+  io.emit("aiStatus", aiStatus);
 }, 5000);
 
 // ============ GRACEFUL SHUTDOWN ============
