@@ -1,0 +1,34 @@
+# Dependencies
+node_modules/
+
+# Environment (contains private keys!)
+.env
+
+# Hardhat build artifacts
+cache/
+artifacts/
+typechain-types/
+
+# Coverage
+coverage/
+coverage.json
+
+# Server runtime data
+server/data/
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Claude Code local settings
+.claude/
+
+# Prompt/guide files (local only)
+CLAUDE_CODE_PROMPT.txt
+CLAUDE_CODE_GUIDE.md
+CLAUDE_CODE_BUILD.md

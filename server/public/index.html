@@ -1,0 +1,1203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FLASHLOAN-AI | DeFi Arbitrage Command Center</title>
+<script src="/socket.io/socket.io.js"></script>
+<style>
+:root{--bg:#06080f;--bg2:#0c1220;--bg3:#121d33;--bg4:#182846;--accent:#00d4ff;--accent2:#7c5cfc;--accent3:#00f5d4;--green:#10b981;--red:#ef4444;--yellow:#f59e0b;--orange:#f97316;--pink:#ec4899;--text:#e4e8f1;--text2:#6b7fa0;--text3:#4a5b78;--border:#1a2744;--border2:#243454;--glow:rgba(0,212,255,.08)}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);font-size:13px;-webkit-font-smoothing:antialiased}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:var(--bg2)}::-webkit-scrollbar-thumb{background:var(--accent2);border-radius:3px}
+button{cursor:pointer;font-family:inherit}
+input,select,textarea{font-family:inherit;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:9px 14px;font-size:12px;outline:none;width:100%;transition:border .2s}
+input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,212,255,.08)}
+
+/* LAYOUT */
+.app{display:grid;grid-template-columns:240px 1fr;grid-template-rows:56px 1fr;min-height:100vh}
+.top{grid-column:1/-1;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 24px;backdrop-filter:blur(10px)}
+.logo{display:flex;align-items:center;gap:10px}
+.logo-icon{width:32px;height:32px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:900;color:var(--bg)}
+.logo b{font-size:16px;background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:.5px}
+.logo-sub{font-size:10px;color:var(--text2);margin-left:-2px}
+.top-r{display:flex;align-items:center;gap:14px}
+.env-badge{padding:4px 14px;border-radius:12px;font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase}
+.env-test{background:rgba(245,158,11,.1);color:var(--yellow);border:1px solid rgba(245,158,11,.25)}
+.env-main{background:rgba(16,185,129,.1);color:var(--green);border:1px solid rgba(16,185,129,.25)}
+.conn{width:8px;height:8px;border-radius:50%;background:var(--red);transition:.3s}
+.conn.on{background:var(--green);box-shadow:0 0 10px var(--green)}
+
+/* SIDEBAR */
+.side{background:var(--bg2);border-right:1px solid var(--border);padding:16px 0;overflow-y:auto}
+.sb-section{font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px;padding:16px 16px 6px}
+.sb-btn{display:flex;align-items:center;gap:10px;width:100%;background:none;border:none;color:var(--text2);padding:9px 16px;font-size:12px;text-align:left;transition:.15s;font-weight:500;border-left:2px solid transparent}
+.sb-btn:hover{background:rgba(255,255,255,.02);color:var(--text)}
+.sb-btn.active{background:var(--glow);color:var(--accent);border-left-color:var(--accent)}
+.sb-btn .icon{width:18px;text-align:center;font-size:13px}
+.sb-btn .dot{width:7px;height:7px;border-radius:50%;margin-left:auto}
+.dot-on{background:var(--green);box-shadow:0 0 6px var(--green)}
+.dot-off{background:var(--text3)}
+
+/* MAIN */
+.main{padding:24px;overflow-y:auto;background:var(--bg)}
+.panel{display:none}.panel.active{display:block}
+.page-title{font-size:20px;font-weight:800;margin-bottom:6px;letter-spacing:-.3px}
+.page-desc{font-size:12px;color:var(--text2);margin-bottom:20px;line-height:1.6}
+
+/* CARDS */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px;transition:border .2s}
+.card:hover{border-color:var(--border2)}
+.card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.card-title{font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px}
+.card-subtitle{font-size:11px;color:var(--text2);margin-top:2px}
+
+/* GRIDS */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+@media(max-width:1100px){.g3,.g4{grid-template-columns:1fr 1fr}}
+@media(max-width:900px){.g2,.g3,.g4{grid-template-columns:1fr}.app{grid-template-columns:1fr}.side{display:none}}
+
+/* KPI */
+.kpi{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center;position:relative;overflow:hidden}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.kpi-accent::before{background:linear-gradient(90deg,var(--accent),transparent)}
+.kpi-green::before{background:linear-gradient(90deg,var(--green),transparent)}
+.kpi-orange::before{background:linear-gradient(90deg,var(--orange),transparent)}
+.kpi-purple::before{background:linear-gradient(90deg,var(--accent2),transparent)}
+.kpi-value{font-size:24px;font-weight:800;margin:6px 0 2px}
+.kpi-label{font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.8px;font-weight:600}
+
+/* FORM */
+.fg{margin-bottom:14px}
+.fl{display:block;font-size:11px;font-weight:600;color:var(--text2);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}
+.fh{font-size:10px;color:var(--text3);margin-top:4px}
+
+/* BUTTONS */
+.btn{padding:8px 18px;border-radius:8px;font-size:12px;font-weight:600;border:none;transition:.15s;display:inline-flex;align-items:center;gap:6px;letter-spacing:.2px}
+.btn:hover{filter:brightness(1.15);transform:translateY(-1px)}
+.btn:active{transform:translateY(0)}
+.btn-primary{background:linear-gradient(135deg,var(--accent),#0099cc);color:var(--bg);font-weight:700}
+.btn-success{background:rgba(16,185,129,.12);color:var(--green);border:1px solid rgba(16,185,129,.25)}
+.btn-danger{background:rgba(239,68,68,.12);color:var(--red);border:1px solid rgba(239,68,68,.25)}
+.btn-warning{background:rgba(245,158,11,.12);color:var(--yellow);border:1px solid rgba(245,158,11,.25)}
+.btn-ghost{background:rgba(255,255,255,.04);color:var(--text2);border:1px solid var(--border)}
+.btn-sm{padding:5px 12px;font-size:11px}
+.btn-lg{padding:10px 24px;font-size:13px}
+
+/* BADGES */
+.badge{padding:3px 10px;border-radius:10px;font-size:10px;font-weight:700;letter-spacing:.3px}
+.badge-green{background:rgba(16,185,129,.1);color:var(--green)}
+.badge-red{background:rgba(239,68,68,.1);color:var(--red)}
+.badge-yellow{background:rgba(245,158,11,.1);color:var(--yellow)}
+.badge-blue{background:rgba(0,212,255,.1);color:var(--accent)}
+.badge-purple{background:rgba(124,92,252,.1);color:var(--accent2)}
+
+/* TOGGLE */
+.toggle{position:relative;width:40px;height:22px;display:inline-block}
+.toggle input{display:none}
+.toggle span{position:absolute;inset:0;background:var(--bg);border:1px solid var(--border);border-radius:11px;cursor:pointer;transition:.25s}
+.toggle span::after{content:'';position:absolute;width:16px;height:16px;border-radius:50%;background:var(--text3);top:2px;left:2px;transition:.25s}
+.toggle input:checked+span{background:rgba(0,212,255,.12);border-color:var(--accent)}
+.toggle input:checked+span::after{background:var(--accent);transform:translateX(18px);box-shadow:0 0 6px var(--accent)}
+
+/* ALERT */
+.alert{padding:12px 16px;border-radius:10px;font-size:12px;margin-bottom:14px;line-height:1.6;display:flex;align-items:flex-start;gap:10px}
+.alert-icon{font-size:16px;flex-shrink:0;margin-top:1px}
+.alert-warn{background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.15);color:var(--yellow)}
+.alert-danger{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.15);color:var(--red)}
+.alert-success{background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.15);color:var(--green)}
+.alert-info{background:rgba(0,212,255,.06);border:1px solid rgba(0,212,255,.15);color:var(--accent)}
+
+/* LOG */
+.log-area{height:420px;overflow-y:auto;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px;font-family:'JetBrains Mono','Fira Code',monospace;font-size:11px;line-height:1.8}
+.log-info{color:var(--accent)}.log-warn{color:var(--yellow)}.log-error{color:var(--red)}.log-trade{color:var(--green)}.log-system{color:var(--text3)}
+.log-time{color:var(--text3);margin-right:6px}
+.log-source{font-weight:700;margin-right:6px}
+
+/* STRATEGY CARD */
+.strat-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px;transition:all .2s}
+.strat-card:hover{border-color:var(--border2);box-shadow:0 4px 20px rgba(0,0,0,.3)}
+.strat-header{display:flex;align-items:flex-start;gap:14px;margin-bottom:14px}
+.strat-icon{width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.strat-meta{flex:1}
+.strat-name{font-size:15px;font-weight:700;margin-bottom:3px}
+.strat-tagline{font-size:11px;color:var(--text2);line-height:1.5}
+.strat-toggle{margin-left:auto}
+.strat-body{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.strat-section{background:var(--bg3);border-radius:8px;padding:14px}
+.strat-section-title{font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+.strat-section p,.strat-section li{font-size:12px;color:var(--text2);line-height:1.7}
+.strat-section ul{list-style:none;padding:0}
+.strat-section li::before{content:'>';color:var(--accent);margin-right:6px;font-weight:700}
+.strat-stats{display:flex;gap:12px;margin-top:14px;flex-wrap:wrap}
+.strat-stat{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 14px;text-align:center}
+.strat-stat-val{font-size:14px;font-weight:800}
+.strat-stat-lbl{font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
+
+/* BOT ROW */
+.bot-row{display:flex;align-items:center;gap:14px;padding:14px 16px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;margin-bottom:10px;transition:.2s}
+.bot-row:hover{border-color:var(--border2)}
+.bot-name{flex:1;font-weight:600;font-size:13px}
+.bot-desc{font-size:11px;color:var(--text2)}
+
+/* GUIDELINE */
+.guide-step{display:flex;gap:16px;margin-bottom:20px;padding:16px;background:var(--bg2);border:1px solid var(--border);border-radius:12px}
+.guide-num{width:36px;height:36px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--bg);flex-shrink:0;font-size:14px}
+.guide-content h4{font-size:13px;font-weight:700;margin-bottom:4px}
+.guide-content p{font-size:12px;color:var(--text2);line-height:1.7}
+
+/* SCENARIO TABLE */
+.scenario-table{width:100%;border-collapse:separate;border-spacing:0;font-size:12px}
+.scenario-table th{background:var(--bg3);color:var(--text2);font-size:10px;text-transform:uppercase;letter-spacing:.8px;padding:10px 14px;text-align:left;border-bottom:1px solid var(--border);font-weight:700}
+.scenario-table td{padding:10px 14px;border-bottom:1px solid var(--border);color:var(--text2);vertical-align:top}
+.scenario-table tr:hover td{background:rgba(255,255,255,.01)}
+.scenario-table th:first-child{border-radius:8px 0 0 0}.scenario-table th:last-child{border-radius:0 8px 0 0}
+
+/* TAB BUTTONS */
+.tab-group{display:flex;gap:4px;margin-bottom:16px;background:var(--bg2);padding:4px;border-radius:10px;border:1px solid var(--border);width:fit-content}
+.tab-btn{padding:7px 16px;border:none;background:none;color:var(--text2);font-size:11px;font-weight:600;border-radius:7px;transition:.15s;letter-spacing:.2px}
+.tab-btn:hover{color:var(--text)}
+.tab-btn.active{background:var(--bg4);color:var(--accent)}
+
+/* DIVIDER */
+.divider{border:none;border-top:1px solid var(--border);margin:20px 0}
+
+/* RISK METER */
+.risk-meter{display:flex;gap:3px;align-items:center}
+.risk-bar{width:20px;height:6px;border-radius:3px;background:var(--bg)}
+.risk-bar.filled{background:var(--green)}
+.risk-bar.med{background:var(--yellow)}
+.risk-bar.high{background:var(--red)}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- ===== TOPBAR ===== -->
+<div class="top">
+  <div class="logo">
+    <div class="logo-icon">FA</div>
+    <div>
+      <b>FLASHLOAN-AI</b>
+      <div class="logo-sub">DeFi Arbitrage Command Center v1.0</div>
+    </div>
+  </div>
+  <div class="top-r">
+    <span class="env-badge env-test" id="netBadge">TESTNET</span>
+    <div class="conn" id="connDot" title="WebSocket connection"></div>
+    <span style="font-size:11px;color:var(--text2)" id="clock"></span>
+  </div>
+</div>
+
+<!-- ===== SIDEBAR ===== -->
+<div class="side">
+  <div class="sb-section">Getting Started</div>
+  <button class="sb-btn active" onclick="navigate('dashboard')"><span class="icon">&#9635;</span> Dashboard</button>
+  <button class="sb-btn" onclick="navigate('setup')"><span class="icon">&#9881;</span> Setup & Credentials</button>
+  <button class="sb-btn" onclick="navigate('guidelines')"><span class="icon">&#9782;</span> Guidelines</button>
+
+  <div class="sb-section">Configuration</div>
+  <button class="sb-btn" onclick="navigate('config')"><span class="icon">&#9874;</span> Trading Config</button>
+  <button class="sb-btn" onclick="navigate('strategies')"><span class="icon">&#9733;</span> All 7 Strategies</button>
+  <button class="sb-btn" onclick="navigate('scenarios')"><span class="icon">&#9730;</span> Scenarios</button>
+
+  <div class="sb-section">Operations</div>
+  <button class="sb-btn" onclick="navigate('bots')"><span class="icon">&#9889;</span> Bot Control <span class="dot dot-off" id="dotAll"></span></button>
+  <button class="sb-btn" onclick="navigate('logs')"><span class="icon">&#9776;</span> Live Logs</button>
+  <button class="sb-btn" onclick="navigate('stats')"><span class="icon">&#9670;</span> Analytics</button>
+</div>
+
+<!-- ===== MAIN CONTENT ===== -->
+<div class="main">
+
+<!-- ========== DASHBOARD ========== -->
+<div class="panel active" id="p-dashboard">
+  <div class="page-title">Command Center</div>
+  <div class="page-desc">Real-time overview of all systems. Monitor your bots, strategies, and performance at a glance.</div>
+
+  <div class="g4" style="margin-bottom:20px">
+    <div class="kpi kpi-accent"><div class="kpi-label">System Uptime</div><div class="kpi-value" id="dUptime" style="color:var(--accent);font-size:18px">--</div></div>
+    <div class="kpi kpi-purple"><div class="kpi-label">Total Scans</div><div class="kpi-value" id="dScans" style="color:var(--accent2)">0</div></div>
+    <div class="kpi kpi-orange"><div class="kpi-label">Opportunities</div><div class="kpi-value" id="dOpps" style="color:var(--orange)">0</div></div>
+    <div class="kpi kpi-green"><div class="kpi-label">Trades Executed</div><div class="kpi-value" id="dTrades" style="color:var(--green)">0</div></div>
+  </div>
+
+  <div class="g2">
+    <div class="card">
+      <div class="card-header"><div class="card-title">Active Bots</div></div>
+      <div class="bot-row">
+        <span class="dot dot-off" id="dDotArb"></span>
+        <div><div class="bot-name">Arbitrage Bot</div><div class="bot-desc">DEX-to-DEX + Triangular scanning</div></div>
+      </div>
+      <div class="bot-row">
+        <span class="dot dot-off" id="dDotLiq"></span>
+        <div><div class="bot-name">Liquidation Bot</div><div class="bot-desc">Aave V3 health factor monitoring</div></div>
+      </div>
+      <div class="bot-row">
+        <span class="dot dot-off" id="dDotStb"></span>
+        <div><div class="bot-name">Stablecoin Bot</div><div class="bot-desc">Depeg detection across 6+ assets</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><div class="card-title">System Status</div></div>
+      <div id="dashAlerts"></div>
+      <div style="margin-top:8px">
+        <button class="btn btn-primary btn-sm" onclick="navigate('setup')">Go to Setup</button>
+        <button class="btn btn-ghost btn-sm" onclick="navigate('bots')" style="margin-left:6px">Bot Control</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== SETUP ========== -->
+<div class="panel" id="p-setup">
+  <div class="page-title">Setup & Credentials</div>
+  <div class="page-desc">Configure your wallet and RPC connection. All credentials are stored locally in the <code>.env</code> file on this server. Never exposed to the frontend.</div>
+
+  <div id="setupAlerts"></div>
+
+  <div class="card">
+    <div class="card-header">
+      <div><div class="card-title">Step 1 &mdash; Wallet & RPC Credentials</div><div class="card-subtitle">Required before deploying contracts or running bots</div></div>
+    </div>
+    <div class="g2">
+      <div class="fg">
+        <label class="fl">Private Key</label>
+        <input type="password" id="inPK" placeholder="0x followed by 64 hex characters...">
+        <div class="fh">Export from MetaMask: Account &rarr; Export Private Key. Use a dedicated bot wallet only.</div>
+      </div>
+      <div class="fg">
+        <label class="fl">RPC URL (Arbitrum)</label>
+        <input type="text" id="inRPC" placeholder="https://arb-sepolia.g.alchemy.com/v2/YOUR_KEY">
+        <div class="fh">Get from Alchemy, Infura, or QuickNode dashboard.</div>
+      </div>
+    </div>
+    <div class="g2" style="margin-top:2px">
+      <div class="fg">
+        <label class="fl">Arbiscan API Key <span style="color:var(--text3)">(Optional)</span></label>
+        <input type="text" id="inArbiscan" placeholder="For contract verification">
+      </div>
+      <div class="fg">
+        <label class="fl">Telegram Bot Token <span style="color:var(--text3)">(Optional)</span></label>
+        <input type="text" id="inTelegram" placeholder="For trade notifications">
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;margin-top:4px">
+      <button class="btn btn-primary" onclick="saveCredentials()">Save Credentials</button>
+      <span id="credStatus" style="font-size:12px"></span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div><div class="card-title">Step 2 &mdash; Compile & Deploy Smart Contract</div><div class="card-subtitle">Compile Solidity contracts and deploy to your selected network</div></div>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn btn-warning" onclick="doCompile()">Compile Contracts</button>
+      <button class="btn btn-primary" onclick="doDeploy()">Deploy to Network</button>
+    </div>
+    <div class="fg" style="margin-top:14px">
+      <label class="fl">Contract Address <span style="color:var(--text3)">(Auto-filled after deploy)</span></label>
+      <input type="text" id="inContract" placeholder="0x... (auto-populated or paste manually)">
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><div class="card-title">Step 3 &mdash; Ready to Go</div></div>
+    <p style="color:var(--text2);font-size:12px;margin-bottom:12px">Once credentials are saved and contract is deployed, navigate to Bot Control to start scanning for opportunities.</p>
+    <button class="btn btn-success btn-lg" onclick="navigate('bots')">Open Bot Control &rarr;</button>
+  </div>
+</div>
+
+<!-- ========== GUIDELINES ========== -->
+<div class="panel" id="p-guidelines">
+  <div class="page-title">Guidelines & Best Practices</div>
+  <div class="page-desc">Follow these guidelines to maximize profit and minimize risk. This is not financial advice &mdash; always do your own research.</div>
+
+  <div class="guide-step">
+    <div class="guide-num">1</div>
+    <div class="guide-content">
+      <h4>Always Start on Testnet</h4>
+      <p>Deploy to Arbitrum Sepolia first. Run bots for at least 48 hours in monitor-only mode (Auto Execute = OFF) to verify opportunity detection, gas estimation accuracy, and that the bot handles edge cases like reverted transactions, stale prices, and network congestion.</p>
+    </div>
+  </div>
+
+  <div class="guide-step">
+    <div class="guide-num">2</div>
+    <div class="guide-content">
+      <h4>Use a Dedicated Hot Wallet</h4>
+      <p>Never use your main wallet. Create a fresh MetaMask wallet exclusively for the bot. Fund it only with the amount you are willing to lose. If the private key is compromised, your main holdings remain safe. Rotate keys periodically.</p>
+    </div>
+  </div>
+
+  <div class="guide-step">
+    <div class="guide-num">3</div>
+    <div class="guide-content">
+      <h4>Understand Gas Economics</h4>
+      <p>Every trade costs gas. On Arbitrum, gas is cheap (~$0.01-$0.05 per tx), but on Ethereum mainnet it can be $5-$50+. Always factor gas into your minimum profit threshold. A profitable arbitrage on paper can become a loss after gas. Use the Max Gas setting to cap spending.</p>
+    </div>
+  </div>
+
+  <div class="guide-step">
+    <div class="guide-num">4</div>
+    <div class="guide-content">
+      <h4>Flashloan Mechanics</h4>
+      <p>Flashloans from Aave V3 must be repaid within the same transaction block. If the arbitrage fails (slippage, frontrunning, stale price), the entire transaction reverts and you only lose the gas fee. This makes flashloans capital-efficient but not risk-free &mdash; gas costs still apply and repeated failures compound.</p>
+    </div>
+  </div>
+
+  <div class="guide-step">
+    <div class="guide-num">5</div>
+    <div class="guide-content">
+      <h4>MEV & Frontrunning Protection</h4>
+      <p>On-chain arbitrage is a competitive game. MEV bots and block builders watch the mempool. Use private RPCs (Flashbots Protect, MEV Blocker) when moving to mainnet to avoid sandwich attacks. On Arbitrum, MEV is less of an issue due to the FCFS sequencer model, but this may change.</p>
+    </div>
+  </div>
+
+  <div class="guide-step">
+    <div class="guide-num">6</div>
+    <div class="guide-content">
+      <h4>Risk Management Rules</h4>
+      <p>Set a daily loss limit and stick to it. If the bot hits 5 consecutive failed transactions, auto-pause and investigate. Never run New Pool Sniping or Oracle Lag on mainnet without thorough backtesting. Start with conservative parameters (Min Profit > 30 bps, Max Slippage < 30 bps) and tighten as you learn.</p>
+    </div>
+  </div>
+
+  <div class="guide-step">
+    <div class="guide-num">7</div>
+    <div class="guide-content">
+      <h4>Monitoring & Alerts</h4>
+      <p>Set up Telegram notifications for all trades. Check the Analytics panel daily. Watch for patterns: if Opportunities is high but Trades is zero, your slippage or gas settings may be too tight. If gas consumption spikes with no profit, an external MEV bot may be frontrunning you.</p>
+    </div>
+  </div>
+
+  <div class="guide-step">
+    <div class="guide-num">8</div>
+    <div class="guide-content">
+      <h4>Mainnet Migration Checklist</h4>
+      <p>Before going live: (1) Testnet ran 72+ hours with no critical errors. (2) Contract verified on Arbiscan. (3) Auto Execute tested on testnet with real flashloans. (4) Dedicated wallet funded with 0.01 ETH for gas. (5) Telegram alerts configured. (6) PM2 auto-restart confirmed. (7) VPS has at least 1GB RAM and stable internet.</p>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <div class="card">
+    <div class="card-header"><div class="card-title">Security Reminders</div></div>
+    <div class="alert alert-danger">
+      <span class="alert-icon">&#9888;</span>
+      <div>
+        <strong>Never share your private key.</strong> This application stores it server-side in the <code>.env</code> file. If your VPS is compromised, your wallet is compromised. Use firewall rules to restrict access to port 3000 (IP whitelist recommended). Consider using HTTPS with a reverse proxy (Nginx + Let's Encrypt) for production deployments.
+      </div>
+    </div>
+    <div class="alert alert-info">
+      <span class="alert-icon">&#128274;</span>
+      <div>
+        <strong>Recommended VPS Hardening:</strong> Disable root SSH login, use SSH keys instead of passwords, configure <code>fail2ban</code>, enable UFW firewall, and keep the system updated. Restrict port 3000 to your IP: <code>ufw allow from YOUR_IP to any port 3000</code>.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== CONFIG ========== -->
+<div class="panel" id="p-config">
+  <div class="page-title">Trading Configuration</div>
+  <div class="page-desc">Fine-tune scanning parameters, risk limits, and execution behavior. Changes apply immediately to running bots.</div>
+
+  <div class="card">
+    <div class="card-header"><div class="card-title">Core Parameters</div></div>
+    <div class="g2">
+      <div>
+        <div class="fg">
+          <label class="fl">Target Network</label>
+          <select id="cfgChain">
+            <option value="arbitrumSepolia">Arbitrum Sepolia (Testnet)</option>
+            <option value="arbitrum">Arbitrum One (Mainnet)</option>
+            <option value="base">Base (Mainnet)</option>
+            <option value="baseSepolia">Base Sepolia (Testnet)</option>
+            <option value="polygon">Polygon (Mainnet)</option>
+          </select>
+        </div>
+        <div class="fg">
+          <label class="fl">Auto Execute Trades</label>
+          <div style="display:flex;align-items:center;gap:10px">
+            <label class="toggle"><input type="checkbox" id="cfgAutoExec"><span></span></label>
+            <span id="autoLabel" style="font-size:11px;font-weight:600;color:var(--red)">OFF &mdash; Monitor Only</span>
+          </div>
+          <div class="fh">When OFF, the bot detects opportunities but does not execute. Enable only after thorough testnet validation.</div>
+        </div>
+        <div class="fg">
+          <label class="fl">Flash Loan Amount (USD)</label>
+          <select id="cfgFlash">
+            <option value="10000">$10,000</option>
+            <option value="50000" selected>$50,000</option>
+            <option value="100000">$100,000</option>
+            <option value="500000">$500,000</option>
+            <option value="1000000">$1,000,000</option>
+          </select>
+          <div class="fh">Borrowed amount per flashloan. Larger amounts amplify both profit and gas cost.</div>
+        </div>
+      </div>
+      <div>
+        <div class="fg">
+          <label class="fl">Min Profit Threshold: <b id="vProfit" style="color:var(--accent)">15</b> bps</label>
+          <input type="range" min="1" max="200" value="15" id="cfgProfit" oninput="$('vProfit').textContent=this.value">
+          <div class="fh">Minimum profit in basis points (1 bps = 0.01%) after gas to trigger a trade.</div>
+        </div>
+        <div class="fg">
+          <label class="fl">Max Slippage: <b id="vSlip" style="color:var(--yellow)">50</b> bps</label>
+          <input type="range" min="5" max="300" value="50" id="cfgSlip" oninput="$('vSlip').textContent=this.value">
+          <div class="fh">Maximum acceptable slippage. Higher = more trades executed, but riskier.</div>
+        </div>
+        <div class="fg">
+          <label class="fl">Scan Interval: <b id="vScan" style="color:var(--accent2)">3</b> seconds</label>
+          <input type="range" min="1" max="30" value="3" id="cfgScan" oninput="$('vScan').textContent=this.value">
+          <div class="fh">How often the bot checks prices. Lower = faster detection, higher RPC usage.</div>
+        </div>
+        <div class="fg">
+          <label class="fl">Max Gas Price: <b id="vGas" style="color:var(--orange)">5</b> gwei</label>
+          <input type="range" min="1" max="100" value="5" id="cfgGas" oninput="$('vGas').textContent=this.value">
+          <div class="fh">Trades will be skipped if network gas exceeds this limit.</div>
+        </div>
+      </div>
+    </div>
+    <button class="btn btn-primary" onclick="saveConfig()" style="margin-top:4px">Save Configuration</button>
+  </div>
+</div>
+
+<!-- ========== ALL 7 STRATEGIES ========== -->
+<div class="panel" id="p-strategies">
+  <div class="page-title">All 7 Strategies</div>
+  <div class="page-desc">Each strategy targets a different DeFi inefficiency. Enable the ones that match your risk profile. Strategies run independently as separate bot processes.</div>
+
+  <!-- STRATEGY 1: DEX-to-DEX Arbitrage -->
+  <div class="strat-card" id="strat-dexArbitrage">
+    <div class="strat-header">
+      <div class="strat-icon" style="background:rgba(0,212,255,.1);color:var(--accent)">&#8644;</div>
+      <div class="strat-meta">
+        <div class="strat-name">1. DEX-to-DEX Arbitrage</div>
+        <div class="strat-tagline">Buy low on one DEX, sell high on another within the same flashloan transaction. The bread-and-butter of on-chain arbitrage. Works across Uniswap V3, SushiSwap, Camelot, and more.</div>
+      </div>
+      <div class="strat-toggle">
+        <label class="toggle"><input type="checkbox" id="tog-dexArbitrage" onchange="toggleStrat('dexArbitrage',this.checked)"><span></span></label>
+      </div>
+    </div>
+    <div class="strat-body">
+      <div class="strat-section">
+        <div class="strat-section-title">How It Works</div>
+        <ul>
+          <li>Monitor the same token pair across multiple DEXs simultaneously</li>
+          <li>When price diverges beyond the profit threshold, take a flashloan</li>
+          <li>Buy the token on the cheaper DEX, sell on the expensive one</li>
+          <li>Repay the flashloan + fee, keep the spread as profit</li>
+        </ul>
+      </div>
+      <div class="strat-section">
+        <div class="strat-section-title">Key Parameters</div>
+        <ul>
+          <li><strong>Pairs:</strong> WETH/USDC, WETH/USDT, WETH/ARB (configurable)</li>
+          <li><strong>DEXs Scanned:</strong> Uniswap V3, SushiSwap, Camelot, TraderJoe</li>
+          <li><strong>Flashloan Fee:</strong> 0.05% (Aave V3)</li>
+          <li><strong>Typical Spread:</strong> 0.1% - 0.5% per opportunity</li>
+        </ul>
+      </div>
+    </div>
+    <div class="strat-stats">
+      <div class="strat-stat"><div class="strat-stat-val" style="color:var(--green)">0.1-0.5%</div><div class="strat-stat-lbl">Avg Profit</div></div>
+      <div class="strat-stat"><div class="strat-stat-val" style="color:var(--yellow)">Medium</div><div class="strat-stat-lbl">Risk</div></div>
+      <div class="strat-stat"><div class="strat-stat-val" style="color:var(--accent)">~3s</div><div class="strat-stat-lbl">Scan Speed</div></div>
+      <div class="strat-stat"><div class="strat-stat-val" style="color:var(--accent2)">High</div><div class="strat-stat-lbl">Frequency</div></div>
+      <div class="strat-stat"><div class="strat-stat-val" style="color:var(--orange)">Medium</div><div class="strat-stat-lbl">Competition</div></div>
+    </div>
+  </div>
+
+  <!-- STRATEGY 2: Triangular Arbitrage -->
+  <div class="strat-card" id="strat-triangular">
+    <div class="strat-header">
+      <div class="strat-icon" style="background:rgba(124,92,252,.1);color:var(--accent2)">&#9651;</div>
+      <div class="strat-meta">
+        <div class="strat-name">2. Triangular Arbitrage</div>
+        <div class="strat-tagline">Exploit pricing inconsistencies across three token pairs on the same or different DEXs. A &rarr; B &rarr; C &rarr; A, ending with more A than you started. More complex but harder for competitors to spot.</div>
+      </div>
+      <div class="strat-toggle">
+        <label class="toggle"><input type="checkbox" id="tog-triangular" onchange="toggleStrat('triangular',this.checked)"><span></span></label>
+      </div>
+    </div>
+    <div class="strat-body">
+      <div class="strat-section">
+        <div class="strat-section-title">How It Works</div>
+        <ul>
+          <li>Flashloan Token A (e.g., USDC)</li>
+          <li>Swap A &rarr; B (e.g., USDC &rarr; WETH on Uniswap)</li>
+          <li>Swap B &rarr; C (e.g., WETH &rarr; ARB on SushiSwap)</li>
+          <li>Swap C &rarr; A (e.g., ARB &rarr; USDC on Camelot)</li>
+          <li>If A_out > A_in + fees, profit is captured</li>
+        </ul>
+      </div>
+      <div class="strat-section">
+        <div class="strat-section-title">Key Parameters</div>
+        <ul>
+          <li><strong>Triplets:</strong> WETH/USDC/DAI, WETH/ARB/USDC (configurable)</li>
+          <li><strong>Gas Cost:</strong> ~2-3x a simple swap (3 hops)</li>
+          <li><strong>Edge:</strong> Harder to detect = less competition</li>
+          <li><strong>Complexity:</strong> Requires accurate multi-hop price simulation</li>
+        </ul>
+      </div>
+    </div>
+    <div class="strat-stats">
+      <div class="strat-stat"><div class="strat-stat-val" style="color:var(--green)">0.2-1%</div><div class="strat-stat-lbl">Avg Profit</div></div>
+      <div class="strat-stat"><div class="strat-stat-val" style="color:var(--yellow)">Medium</div><div class="strat-stat-lbl">Risk</div></div>
+      <div class="strat-stat"><div class="strat-stat-val" style="color:var(--accent)">~5s</div><div class="strat-stat-lbl">Scan Speed</div></div>
+      <div class="strat-stat"><div class="strat-stat-val" style="color:var(--accent2)">Medium</div><div class="strat-stat-lbl">Frequency</div></div>
+      <div class="strat-stat"><div class="strat-stat-val" style="color:var(--green)">Low</div><div class="strat-stat-lbl">Competition</div></div>
+    </div>
+  </div>
+
+  <!-- STRATEGY 3: Liquidation Sniping -->
+  <div class="strat-card" id="strat-liquidation">
+    <div class="strat-header">
+      <div class="strat-icon" style="background:rgba(239,68,68,.1);color:var(--red)">&#9889;</div>
+      <div class="strat-meta">
+        <div class="strat-name">3. Liquidation Sniping</div>
+        <div class="strat-tagline">Monitor Aave V3 and Compound borrower positions. When a position's Health Factor drops below 1.0, liquidate it and collect the liquidation bonus (5-15% of collateral). High reward, event-driven.</div>
+      </div>
+      <div class="strat-toggle">
+        <label class="toggle"><input type="checkbox" id="tog-liquidation" onchange="toggleStrat('liquidation',this.checked)"><span></span></label>
+      </div>
+    </div>
+    <div class="strat-body">
+      <div class="strat-section">
+        <div class="strat-section-title">How It Works</div>
+        <ul>
+          <li>Discover borrowers by scanning debt token Transfer events</li>
+          <li>Continuously monitor each borrower's Health Factor</li>
+          <li>When HF < 1.0, the position is liquidatable</li>
+          <li>Flashloan the debt token, repay the borrower's debt</li>
+          <li>Receive collateral at a discount (the liquidation bonus)</li>
+          <li>Swap collateral back to repay the flashloan</li>
+        </ul>
+      </div>
+      <div class="strat-section">
+        <div class="strat-section-title">Key Parameters</div>
+        <ul>
+          <li><strong>HF Threshold:</strong> Monitor when HF drops below 1.1 (configurable)</li>
+          <li><strong>Min Bonus:</strong> Only liquidate if bonus > 5% (configurable)</li>
+          <li><strong>Protocols:</strong> Aave V3 (primary), Compound V3</li>
+          <li><strong>Trigger:</strong> Market crash, sudden price drops</li>
+        </ul>
+      </div>
+    </div>
+    <div class="strat-stats">
+      <div class="strat-stat"><div class="strat-stat-val" style="color:var(--green)">5-15%</div><div class="strat-stat-lbl">Avg Profit</div></div>
+      <div class="strat-stat"><div class="strat-stat-val" style="color:var(--green)">Low</div><div class="strat-stat-lbl">Risk</div></div>
+      <div class="strat-stat"><div class="strat-stat-val" style="color:var(--accent)">~3s</div><div class="strat-stat-lbl">Scan Speed</div></div>
+      <div class="strat-stat"><div class="strat-stat-val" style="color:var(--yellow)">Event-Driven</div><div class="strat-stat-lbl">Frequency</div></div>
+      <div class="strat-stat"><div class="strat-stat-val" style="color:var(--red)">High</div><div class="strat-stat-lbl">Competition</div></div>
+    </div>
+  </div>
+
+  <!-- STRATEGY 4: Stablecoin Depeg -->
+  <div class="strat-card" id="strat-stablecoin">
+    <div class="strat-header">
+      <div class="strat-icon" style="background:rgba(16,185,129,.1);color:var(--green)">&#36;</div>
+      <div class="strat-meta">
+        <div class="strat-name">4. Stablecoin Depeg Arbitrage</div>
+        <div class="strat-tagline">When stablecoins trade below $1.00 (or above $1.00) on DEXs, buy the discounted stablecoin and redeem or swap it at peg. Low risk, frequent micro-opportunities, especially during market volatility.</div>
+      </div>
+      <div class="strat-toggle">
+        <label class="toggle"><input type="checkbox" id="tog-stablecoin" onchange="toggleStrat('stablecoin',this.checked)"><span></span></label>
+      </div>
+    </div>
+    <div class="strat-body">
+      <div class="strat-section">
+        <div class="strat-section-title">How It Works</div>
+        <ul>
+          <li>Monitor 6+ stablecoins: USDC, USDT, DAI, FRAX, MIM, USDCe</li>
+          <li>Detect when any stablecoin trades at &gt;10 bps from $1.00</li>
+          <li>Flashloan the stronger stablecoin, swap to the depegged one</li>
+          <li>Wait for re-peg or swap back via a different route for instant profit</li>
+          <li>Includes trend analysis to predict depeg deepening</li>
+        </ul>
+      </div>
+      <div class="strat-section">
+        <div class="strat-section-title">Key Parameters</div>
+        <ul>
+          <li><strong>Depeg Threshold:</strong> 10 bps (0.1%) deviation triggers alert</li>
+          <li><strong>Assets Monitored:</strong> USDC, USDT, DAI, FRAX, MIM, USDCe</li>
+          <li><strong>Flash Amount:</strong> $50,000 default (configurable)</li>
+          <li><strong>Round-trip profit calculation</strong> includes all fees</li>
+        </ul>
+      </div>
+    </div>
+    <div class="strat-stats">
+      <div class="strat-stat"><div class="strat-stat-val" style="color:var(--green)">0.1-0.5%</div><div class="strat-stat-lbl">Avg Profit</div></div>
+      <div class="strat-stat"><div class="strat-stat-val" style="color:var(--green)">Very Low</div><div class="strat-stat-lbl">Risk</div></div>
+      <div class="strat-stat"><div class="strat-stat-val" style="color:var(--accent)">~3s</div><div class="strat-stat-lbl">Scan Speed</div></div>
+      <div class="strat-stat"><div class="strat-stat-val" style="color:var(--accent2)">High</div><div class="strat-stat-lbl">Frequency</div></div>
+      <div class="strat-stat"><div class="strat-stat-val" style="color:var(--green)">Low</div><div class="strat-stat-lbl">Competition</div></div>
+    </div>
+  </div>
+
+  <!-- STRATEGY 5: New Pool Sniping -->
+  <div class="strat-card" id="strat-newPool">
+    <div class="strat-header">
+      <div class="strat-icon" style="background:rgba(236,72,153,.1);color:var(--pink)">&#127793;</div>
+      <div class="strat-meta">
+        <div class="strat-name">5. New Pool Sniping</div>
+        <div class="strat-tagline">Detect newly created liquidity pools on DEX factories within seconds and execute the first buy before the crowd. Extremely high reward potential, but also high risk due to rug pulls, honeypots, and low liquidity.</div>
+      </div>
+      <div class="strat-toggle">
+        <label class="toggle"><input type="checkbox" id="tog-newPool" onchange="toggleStrat('newPool',this.checked)"><span></span></label>
+      </div>
+    </div>
+    <div class="strat-body">
+      <div class="strat-section">
+        <div class="strat-section-title">How It Works</div>
+        <ul>
+          <li>Listen to PairCreated events on Uniswap/SushiSwap factory contracts</li>
+          <li>Instantly analyze the new token: verify contract source, check for honeypot patterns, assess initial liquidity</li>
+          <li>If it passes safety checks, execute a small buy within the first block</li>
+          <li>Set take-profit and stop-loss levels automatically</li>
+          <li>Auto-sell at target or time-based exit</li>
+        </ul>
+      </div>
+      <div class="strat-section">
+        <div class="strat-section-title">Key Parameters</div>
+        <ul>
+          <li><strong>Max Buy:</strong> $100 per new pool (configurable, risk cap)</li>
+          <li><strong>Auto Approve:</strong> OFF by default (requires manual review)</li>
+          <li><strong>Safety Checks:</strong> Verified source, no mint(), no blacklist()</li>
+          <li><strong>Exit Strategy:</strong> 2x take-profit or 50% stop-loss</li>
+        </ul>
+      </div>
+    </div>
+    <div class="strat-stats">
+      <div class="strat-stat"><div class="strat-stat-val" style="color:var(--green)">10-100%+</div><div class="strat-stat-lbl">Potential Profit</div></div>
+      <div class="strat-stat"><div class="strat-stat-val" style="color:var(--red)">Very High</div><div class="strat-stat-lbl">Risk</div></div>
+      <div class="strat-stat"><div class="strat-stat-val" style="color:var(--accent)">Real-time</div><div class="strat-stat-lbl">Detection</div></div>
+      <div class="strat-stat"><div class="strat-stat-val" style="color:var(--yellow)">Low</div><div class="strat-stat-lbl">Frequency</div></div>
+      <div class="strat-stat"><div class="strat-stat-val" style="color:var(--red)">Extreme</div><div class="strat-stat-lbl">Competition</div></div>
+    </div>
+  </div>
+
+  <!-- STRATEGY 6: Oracle Lag Exploitation -->
+  <div class="strat-card" id="strat-oracleLag">
+    <div class="strat-header">
+      <div class="strat-icon" style="background:rgba(245,158,11,.1);color:var(--yellow)">&#9201;</div>
+      <div class="strat-meta">
+        <div class="strat-name">6. Oracle Lag Exploitation</div>
+        <div class="strat-tagline">Price oracles (Chainlink, Pyth) update on a heartbeat or deviation threshold. Between updates, the on-chain price can lag behind the real market price. Trade against stale oracle prices before they refresh.</div>
+      </div>
+      <div class="strat-toggle">
+        <label class="toggle"><input type="checkbox" id="tog-oracleLag" onchange="toggleStrat('oracleLag',this.checked)"><span></span></label>
+      </div>
+    </div>
+    <div class="strat-body">
+      <div class="strat-section">
+        <div class="strat-section-title">How It Works</div>
+        <ul>
+          <li>Monitor Chainlink price feed's last update timestamp</li>
+          <li>Simultaneously check real-time DEX prices (or CEX via API)</li>
+          <li>When oracle price diverges from true market price by &gt;threshold</li>
+          <li>Borrow/lend on the protocol using the stale oracle price</li>
+          <li>Unwind position after oracle updates for profit</li>
+        </ul>
+      </div>
+      <div class="strat-section">
+        <div class="strat-section-title">Key Parameters</div>
+        <ul>
+          <li><strong>Oracle Sources:</strong> Chainlink, Pyth, Band Protocol</li>
+          <li><strong>Lag Detection:</strong> Compare on-chain vs off-chain prices</li>
+          <li><strong>Heartbeat:</strong> Chainlink updates every 3600s or 0.5% deviation</li>
+          <li><strong>Auto Execute:</strong> OFF by default (high complexity)</li>
+        </ul>
+      </div>
+    </div>
+    <div class="strat-stats">
+      <div class="strat-stat"><div class="strat-stat-val" style="color:var(--green)">2-10%</div><div class="strat-stat-lbl">Avg Profit</div></div>
+      <div class="strat-stat"><div class="strat-stat-val" style="color:var(--red)">High</div><div class="strat-stat-lbl">Risk</div></div>
+      <div class="strat-stat"><div class="strat-stat-val" style="color:var(--accent)">~1s</div><div class="strat-stat-lbl">Detection</div></div>
+      <div class="strat-stat"><div class="strat-stat-val" style="color:var(--yellow)">Rare</div><div class="strat-stat-lbl">Frequency</div></div>
+      <div class="strat-stat"><div class="strat-stat-val" style="color:var(--yellow)">Medium</div><div class="strat-stat-lbl">Competition</div></div>
+    </div>
+  </div>
+
+  <!-- STRATEGY 7: Yield Rebalancing -->
+  <div class="strat-card" id="strat-yieldRebalance">
+    <div class="strat-header">
+      <div class="strat-icon" style="background:rgba(0,245,212,.1);color:var(--accent3)">&#9708;</div>
+      <div class="strat-meta">
+        <div class="strat-name">7. Yield Rebalancing</div>
+        <div class="strat-tagline">Continuously monitor lending rates across Aave, Compound, and other protocols. When a significant APY gap appears, withdraw from the lower-yield protocol and deposit into the higher-yield one using a flashloan for atomic rebalancing.</div>
+      </div>
+      <div class="strat-toggle">
+        <label class="toggle"><input type="checkbox" id="tog-yieldRebalance" onchange="toggleStrat('yieldRebalance',this.checked)"><span></span></label>
+      </div>
+    </div>
+    <div class="strat-body">
+      <div class="strat-section">
+        <div class="strat-section-title">How It Works</div>
+        <ul>
+          <li>Query supply APY across Aave V3, Compound V3, Morpho, etc.</li>
+          <li>Compare rates for the same asset (e.g., USDC on Aave vs Compound)</li>
+          <li>When APY difference exceeds threshold (e.g., 1%+)</li>
+          <li>Flashloan to atomically withdraw from A and deposit into B</li>
+          <li>Net gain is the APY differential minus flashloan fee</li>
+        </ul>
+      </div>
+      <div class="strat-section">
+        <div class="strat-section-title">Key Parameters</div>
+        <ul>
+          <li><strong>Min APY Difference:</strong> 1.0% (configurable)</li>
+          <li><strong>Protocols:</strong> Aave V3, Compound V3, Morpho, Spark</li>
+          <li><strong>Assets:</strong> USDC, USDT, DAI, WETH</li>
+          <li><strong>Rebalance Frequency:</strong> Check every 30 minutes</li>
+        </ul>
+      </div>
+    </div>
+    <div class="strat-stats">
+      <div class="strat-stat"><div class="strat-stat-val" style="color:var(--green)">APY Gap</div><div class="strat-stat-lbl">Profit Model</div></div>
+      <div class="strat-stat"><div class="strat-stat-val" style="color:var(--green)">Low</div><div class="strat-stat-lbl">Risk</div></div>
+      <div class="strat-stat"><div class="strat-stat-val" style="color:var(--accent)">30min</div><div class="strat-stat-lbl">Check Interval</div></div>
+      <div class="strat-stat"><div class="strat-stat-val" style="color:var(--yellow)">Low</div><div class="strat-stat-lbl">Frequency</div></div>
+      <div class="strat-stat"><div class="strat-stat-val" style="color:var(--green)">Low</div><div class="strat-stat-lbl">Competition</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== SCENARIOS ========== -->
+<div class="panel" id="p-scenarios">
+  <div class="page-title">Trading Scenarios</div>
+  <div class="page-desc">Real-world market conditions and how each strategy responds. Use this as a reference to understand when each strategy thrives or underperforms.</div>
+
+  <div class="card">
+    <div class="card-header"><div class="card-title">Market Condition Matrix</div></div>
+    <table class="scenario-table">
+      <thead>
+        <tr>
+          <th>Market Condition</th>
+          <th>Best Strategies</th>
+          <th>Expected Behavior</th>
+          <th>Risk Level</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Flash Crash (-10%+ in minutes)</strong></td>
+          <td><span class="badge badge-red">Liquidation</span> <span class="badge badge-green">Stablecoin</span></td>
+          <td>Mass liquidations trigger. Health Factors plummet across lending protocols. Stablecoins may temporarily depeg due to panic selling. Liquidation bot should capture 5-15% bonuses on each liquidation.</td>
+          <td><span class="badge badge-yellow">Medium</span></td>
+        </tr>
+        <tr>
+          <td><strong>High Volatility (choppy market)</strong></td>
+          <td><span class="badge badge-blue">DEX Arb</span> <span class="badge badge-purple">Triangular</span></td>
+          <td>Price discrepancies between DEXs widen during volatility. Arbitrage bots fire frequently. Expect 10-50+ opportunities per hour. Higher profit per trade but also higher revert risk.</td>
+          <td><span class="badge badge-yellow">Medium</span></td>
+        </tr>
+        <tr>
+          <td><strong>Stablecoin Crisis (USDC/USDT depeg)</strong></td>
+          <td><span class="badge badge-green">Stablecoin</span> <span class="badge badge-blue">DEX Arb</span></td>
+          <td>Massive opportunity window. Buy depegged stablecoin at $0.95, sell at $0.99. SVB-style events caused USDC to depeg to $0.87. Can generate outsized returns but timing is critical.</td>
+          <td><span class="badge badge-red">High</span></td>
+        </tr>
+        <tr>
+          <td><strong>New Token Launch (hyped project)</strong></td>
+          <td><span class="badge badge-purple">New Pool</span></td>
+          <td>Pool Sniping bot detects PairCreated within 1 block. First buyers capture 10-100%+ gains. Risk: 80%+ of new tokens are rug pulls. Safety checks are critical. Use $100 max buy cap.</td>
+          <td><span class="badge badge-red">Very High</span></td>
+        </tr>
+        <tr>
+          <td><strong>Low Volatility (sideways market)</strong></td>
+          <td><span class="badge badge-green">Yield Rebalance</span> <span class="badge badge-green">Stablecoin</span></td>
+          <td>Arbitrage opportunities dry up. Switch focus to yield optimization &mdash; APY gaps between protocols still exist. Stablecoin micro-depegs (0.1-0.2%) provide small but consistent profits.</td>
+          <td><span class="badge badge-green">Low</span></td>
+        </tr>
+        <tr>
+          <td><strong>Oracle Update Delay</strong></td>
+          <td><span class="badge badge-yellow">Oracle Lag</span></td>
+          <td>Chainlink heartbeat is 3600s for some feeds. During rapid price moves, on-chain oracle lags behind real price. Borrow at stale price, close after update. Rare but highly profitable.</td>
+          <td><span class="badge badge-red">High</span></td>
+        </tr>
+        <tr>
+          <td><strong>Gas Spike (Ethereum congestion)</strong></td>
+          <td colspan="3" style="color:var(--red);font-weight:600">All strategies should auto-pause. Max Gas limiter kicks in. On Arbitrum L2, gas spikes are rare but the L1 posting cost can increase. Monitor gas and resume when normalized.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><div class="card-title">Strategy Comparison</div></div>
+    <table class="scenario-table">
+      <thead>
+        <tr>
+          <th>Strategy</th>
+          <th>Profit Range</th>
+          <th>Risk</th>
+          <th>Capital Needed</th>
+          <th>Skill Level</th>
+          <th>Best Chain</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>DEX-to-DEX Arbitrage</td><td>0.1-0.5%</td><td><span class="badge badge-yellow">Medium</span></td><td>Flashloan only</td><td>Intermediate</td><td>Arbitrum, Base</td></tr>
+        <tr><td>Triangular Arbitrage</td><td>0.2-1%</td><td><span class="badge badge-yellow">Medium</span></td><td>Flashloan only</td><td>Advanced</td><td>Arbitrum</td></tr>
+        <tr><td>Liquidation Sniping</td><td>5-15%</td><td><span class="badge badge-green">Low</span></td><td>Flashloan only</td><td>Intermediate</td><td>Arbitrum, Base</td></tr>
+        <tr><td>Stablecoin Depeg</td><td>0.1-0.5%</td><td><span class="badge badge-green">Very Low</span></td><td>Flashloan only</td><td>Beginner</td><td>Any L2</td></tr>
+        <tr><td>New Pool Sniping</td><td>10-100%+</td><td><span class="badge badge-red">Very High</span></td><td>$50-$500</td><td>Expert</td><td>Ethereum, Base</td></tr>
+        <tr><td>Oracle Lag</td><td>2-10%</td><td><span class="badge badge-red">High</span></td><td>Flashloan only</td><td>Expert</td><td>Any</td></tr>
+        <tr><td>Yield Rebalancing</td><td>APY gap</td><td><span class="badge badge-green">Low</span></td><td>Flashloan or own</td><td>Beginner</td><td>Any L2</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><div class="card-title">Recommended Configurations by Experience Level</div></div>
+    <div class="g3">
+      <div style="background:var(--bg3);border-radius:10px;padding:16px;border:1px solid rgba(16,185,129,.15)">
+        <div style="font-weight:700;color:var(--green);margin-bottom:8px">Beginner</div>
+        <p style="font-size:12px;color:var(--text2);line-height:1.7">Enable only <strong>Stablecoin Depeg</strong> and <strong>DEX Arbitrage</strong>. Set Auto Execute OFF. Min Profit 30+ bps. Max Slippage 30 bps. Monitor for 1 week before enabling execution. Use testnet only.</p>
+      </div>
+      <div style="background:var(--bg3);border-radius:10px;padding:16px;border:1px solid rgba(245,158,11,.15)">
+        <div style="font-weight:700;color:var(--yellow);margin-bottom:8px">Intermediate</div>
+        <p style="font-size:12px;color:var(--text2);line-height:1.7">Add <strong>Triangular Arbitrage</strong> and <strong>Liquidation Sniping</strong>. Min Profit 15 bps. Auto Execute ON (testnet proven). Deploy to Arbitrum mainnet with small flash amounts ($10K). Enable Telegram alerts.</p>
+      </div>
+      <div style="background:var(--bg3);border-radius:10px;padding:16px;border:1px solid rgba(239,68,68,.15)">
+        <div style="font-weight:700;color:var(--red);margin-bottom:8px">Advanced</div>
+        <p style="font-size:12px;color:var(--text2);line-height:1.7">Enable all 7 strategies. Use private RPCs (Flashbots). Flash amounts $100K-$1M. Custom gas bidding strategy. Multi-chain deployment. 24/7 monitoring with auto-recovery. Consider running your own node.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== BOT CONTROL ========== -->
+<div class="panel" id="p-bots">
+  <div class="page-title">Bot Control</div>
+  <div class="page-desc">Start, stop, and monitor individual bot processes. Each strategy runs as an independent Node.js process managed by the server.</div>
+
+  <div class="g4" style="margin-bottom:20px">
+    <div class="kpi kpi-accent"><div class="kpi-label">Uptime</div><div class="kpi-value" id="kUptime" style="color:var(--accent);font-size:18px">--</div></div>
+    <div class="kpi kpi-purple"><div class="kpi-label">Scans</div><div class="kpi-value" id="kScans" style="color:var(--accent2)">0</div></div>
+    <div class="kpi kpi-orange"><div class="kpi-label">Opportunities</div><div class="kpi-value" id="kOpps" style="color:var(--orange)">0</div></div>
+    <div class="kpi kpi-green"><div class="kpi-label">Trades</div><div class="kpi-value" id="kTrades" style="color:var(--green)">0</div></div>
+  </div>
+
+  <div style="display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap">
+    <button class="btn btn-success btn-lg" onclick="apiCall('bot/start-all','POST')">&#9654; Start All Enabled</button>
+    <button class="btn btn-danger btn-lg" onclick="apiCall('bot/stop-all','POST')">&#9632; Stop All</button>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><div class="card-title">Individual Bot Processes</div></div>
+
+    <div class="bot-row">
+      <span class="dot dot-off" id="dotArb"></span>
+      <div style="flex:1"><div class="bot-name">Arbitrage Bot</div><div class="bot-desc">Handles DEX-to-DEX and Triangular Arbitrage strategies. Scans multiple pairs across Uniswap V3, SushiSwap, and Camelot.</div></div>
+      <button class="btn btn-success btn-sm" onclick="apiCall('bot/arbitrage/start','POST')">Start</button>
+      <button class="btn btn-danger btn-sm" onclick="apiCall('bot/arbitrage/stop','POST')">Stop</button>
+    </div>
+
+    <div class="bot-row">
+      <span class="dot dot-off" id="dotLiq"></span>
+      <div style="flex:1"><div class="bot-name">Liquidation Bot</div><div class="bot-desc">Monitors Aave V3 borrower positions for liquidatable health factors. Executes flashloan-powered liquidations.</div></div>
+      <button class="btn btn-success btn-sm" onclick="apiCall('bot/liquidation/start','POST')">Start</button>
+      <button class="btn btn-danger btn-sm" onclick="apiCall('bot/liquidation/stop','POST')">Stop</button>
+    </div>
+
+    <div class="bot-row">
+      <span class="dot dot-off" id="dotStable"></span>
+      <div style="flex:1"><div class="bot-name">Stablecoin Bot</div><div class="bot-desc">Scans 6+ stablecoins for depeg opportunities. Calculates round-trip profit including all swap fees.</div></div>
+      <button class="btn btn-success btn-sm" onclick="apiCall('bot/stablecoin/start','POST')">Start</button>
+      <button class="btn btn-danger btn-sm" onclick="apiCall('bot/stablecoin/stop','POST')">Stop</button>
+    </div>
+  </div>
+
+  <div class="alert alert-info" style="margin-top:12px">
+    <span class="alert-icon">&#128161;</span>
+    <div><strong>Tip:</strong> "Start All Enabled" only launches bots for strategies that are toggled ON in the Strategies panel. Disabled strategies are skipped. You can also start/stop individual bots independently.</div>
+  </div>
+</div>
+
+<!-- ========== LOGS ========== -->
+<div class="panel" id="p-logs">
+  <div class="page-title">Live Logs</div>
+  <div class="page-desc">Real-time log stream from all running bot processes. Filter by source to focus on specific strategies.</div>
+
+  <div class="tab-group">
+    <button class="tab-btn active" onclick="filterLogs('',this)">All</button>
+    <button class="tab-btn" onclick="filterLogs('arbitrage',this)">Arbitrage</button>
+    <button class="tab-btn" onclick="filterLogs('liquidation',this)">Liquidation</button>
+    <button class="tab-btn" onclick="filterLogs('stablecoin',this)">Stablecoin</button>
+    <button class="tab-btn" onclick="filterLogs('server',this)">Server</button>
+    <button class="tab-btn" onclick="filterLogs('deploy',this)">Deploy</button>
+  </div>
+
+  <div class="log-area" id="logArea"></div>
+
+  <div style="display:flex;gap:8px;margin-top:10px">
+    <button class="btn btn-ghost btn-sm" onclick="$('logArea').innerHTML=''">Clear Display</button>
+    <button class="btn btn-ghost btn-sm" onclick="filterLogs(currentFilter)">Refresh</button>
+  </div>
+</div>
+
+<!-- ========== ANALYTICS ========== -->
+<div class="panel" id="p-stats">
+  <div class="page-title">Analytics</div>
+  <div class="page-desc">Cumulative performance metrics since last server start. Stats reset when the server restarts.</div>
+
+  <div class="g4" style="margin-bottom:20px">
+    <div class="kpi kpi-accent"><div class="kpi-label">System Uptime</div><div class="kpi-value" id="sUptime" style="color:var(--accent);font-size:18px">--</div></div>
+    <div class="kpi kpi-purple"><div class="kpi-label">Total Scans</div><div class="kpi-value" id="sScans" style="color:var(--accent2)">0</div></div>
+    <div class="kpi kpi-orange"><div class="kpi-label">Opportunities Found</div><div class="kpi-value" id="sOpps" style="color:var(--orange)">0</div></div>
+    <div class="kpi kpi-green"><div class="kpi-label">Trades Executed</div><div class="kpi-value" id="sTrades" style="color:var(--green)">0</div></div>
+  </div>
+
+  <div class="g2">
+    <div class="card">
+      <div class="card-header"><div class="card-title">Performance Ratios</div></div>
+      <div class="bot-row">
+        <div style="flex:1"><div class="bot-name">Opportunity Hit Rate</div><div class="bot-desc">Opportunities found / Total scans</div></div>
+        <div id="ratioOpp" style="font-weight:700;color:var(--accent)">0%</div>
+      </div>
+      <div class="bot-row">
+        <div style="flex:1"><div class="bot-name">Trade Execution Rate</div><div class="bot-desc">Trades executed / Opportunities found</div></div>
+        <div id="ratioTrade" style="font-weight:700;color:var(--green)">0%</div>
+      </div>
+      <div class="bot-row">
+        <div style="flex:1"><div class="bot-name">Scans Per Minute</div><div class="bot-desc">Average scanning throughput</div></div>
+        <div id="ratioSPM" style="font-weight:700;color:var(--accent2)">0</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">System Health</div></div>
+      <div class="bot-row">
+        <div style="flex:1"><div class="bot-name">WebSocket</div><div class="bot-desc">Real-time connection status</div></div>
+        <span class="badge badge-green" id="wsHealth">Connected</span>
+      </div>
+      <div class="bot-row">
+        <div style="flex:1"><div class="bot-name">Active Bots</div><div class="bot-desc">Currently running processes</div></div>
+        <span id="activeBotCount" style="font-weight:700;color:var(--accent)">0</span>
+      </div>
+      <div class="bot-row">
+        <div style="flex:1"><div class="bot-name">Log Buffer</div><div class="bot-desc">Entries in server memory</div></div>
+        <span id="logCount" style="font-weight:700;color:var(--text2)">0</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /main -->
+</div><!-- /app -->
+
+<script>
+const $=id=>document.getElementById(id);
+const socket=io();
+let currentFilter='';
+let state={};
+
+// ===== NAVIGATION =====
+function navigate(name){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.sb-btn').forEach(b=>b.classList.remove('active'));
+  const panel=$('p-'+name);
+  if(panel)panel.classList.add('active');
+  // highlight sidebar
+  document.querySelectorAll('.sb-btn').forEach(b=>{
+    if(b.textContent.toLowerCase().includes(name.substring(0,4))||b.onclick?.toString().includes("'"+name+"'"))b.classList.add('active');
+  });
+  // simple matching: click the event button
+  if(event&&event.currentTarget&&event.currentTarget.classList)event.currentTarget.classList.add('active');
+}
+
+// ===== API =====
+async function apiCall(endpoint,method='GET',body=null){
+  const opts={method,headers:{'Content-Type':'application/json'}};
+  if(body)opts.body=JSON.stringify(body);
+  try{const res=await fetch('/api/'+endpoint,opts);return await res.json();}
+  catch(e){console.error('API error:',e);return{error:e.message};}
+}
+
+// ===== STATE =====
+async function loadState(){
+  state=await apiCall('state');
+  updateUI();
+}
+
+function updateUI(){
+  if(!state||!state.config)return;
+  const c=state.config;
+
+  // Dashboard alerts
+  let alerts='';
+  if(!c.privateKeySet)alerts+='<div class="alert alert-danger"><span class="alert-icon">&#9888;</span><div><strong>Private Key not configured.</strong> Go to Setup to enter your wallet credentials.</div></div>';
+  else if(!c.rpcUrlSet)alerts+='<div class="alert alert-warn"><span class="alert-icon">&#9888;</span><div><strong>RPC URL not configured.</strong> You need an Alchemy or Infura endpoint to connect to the blockchain.</div></div>';
+  else alerts+='<div class="alert alert-success"><span class="alert-icon">&#10003;</span><div><strong>System ready.</strong> Credentials configured. You can deploy contracts and start bots.</div></div>';
+  $('dashAlerts').innerHTML=alerts;
+  $('setupAlerts').innerHTML=alerts;
+
+  // Config panel
+  $('cfgChain').value=c.chain||'arbitrumSepolia';
+  $('cfgAutoExec').checked=c.autoExecute;
+  updateAutoLabel();
+  $('cfgProfit').value=c.minProfitBps;$('vProfit').textContent=c.minProfitBps;
+  $('cfgSlip').value=c.maxSlippageBps;$('vSlip').textContent=c.maxSlippageBps;
+  $('cfgScan').value=Math.round(c.scanIntervalMs/1000);$('vScan').textContent=Math.round(c.scanIntervalMs/1000);
+  $('cfgGas').value=c.maxGasGwei;$('vGas').textContent=c.maxGasGwei;
+  if(c.contractAddress)$('inContract').value=c.contractAddress;
+
+  // Network badge
+  const isTestnet=c.chain?.toLowerCase().includes('sepolia');
+  $('netBadge').textContent=isTestnet?'TESTNET':'MAINNET';
+  $('netBadge').className='env-badge '+(isTestnet?'env-test':'env-main');
+
+  // Strategy toggles
+  if(c.strategies){
+    for(const[key,val]of Object.entries(c.strategies)){
+      const tog=$('tog-'+key);
+      if(tog)tog.checked=val.enabled;
+    }
+  }
+
+  // Bot dots
+  updateBotDots(state.bots);
+
+  // Stats
+  updateStats(state.stats);
+}
+
+function updateAutoLabel(){
+  const on=$('cfgAutoExec').checked;
+  $('autoLabel').textContent=on?'ON \u2014 Auto Execute Trades':'OFF \u2014 Monitor Only';
+  $('autoLabel').style.color=on?'var(--green)':'var(--red)';
+}
+$('cfgAutoExec').addEventListener('change',updateAutoLabel);
+
+// ===== STRATEGY TOGGLES =====
+async function toggleStrat(name,enabled){
+  await apiCall('strategy/'+name,'POST',{enabled});
+}
+
+// ===== CREDENTIALS =====
+async function saveCredentials(){
+  const pk=$('inPK').value.trim();
+  const rpc=$('inRPC').value.trim();
+  const arbiscan=$('inArbiscan').value.trim();
+  const telegram=$('inTelegram').value.trim();
+  const body={};
+  if(pk)body.privateKey=pk;
+  if(rpc)body.rpcUrl=rpc;
+  if(arbiscan)body.arbiscanKey=arbiscan;
+  if(telegram)body.telegramToken=telegram;
+  if(Object.keys(body).length===0){$('credStatus').innerHTML='<span style="color:var(--yellow)">Enter at least one field</span>';return;}
+  const res=await apiCall('credentials','POST',body);
+  if(res.error){$('credStatus').innerHTML='<span style="color:var(--red)">'+res.error+'</span>';return;}
+  $('credStatus').innerHTML='<span style="color:var(--green)">Credentials saved successfully</span>';
+  $('inPK').value='';
+  setTimeout(()=>loadState(),500);
+}
+
+// ===== CONFIG =====
+async function saveConfig(){
+  const res=await apiCall('config','POST',{
+    chain:$('cfgChain').value,
+    autoExecute:$('cfgAutoExec').checked,
+    minProfitBps:parseInt($('cfgProfit').value),
+    maxSlippageBps:parseInt($('cfgSlip').value),
+    scanIntervalMs:parseInt($('cfgScan').value)*1000,
+    maxGasGwei:parseInt($('cfgGas').value),
+    flashAmountUsd:parseInt($('cfgFlash').value),
+    contractAddress:$('inContract').value,
+  });
+  if(res.success){
+    const btn=event.target;
+    btn.textContent='Saved!';btn.style.background='var(--green)';
+    setTimeout(()=>{btn.textContent='Save Configuration';btn.style.background='';},2000);
+  }
+}
+
+// ===== COMPILE & DEPLOY =====
+async function doCompile(){await apiCall('compile','POST');}
+async function doDeploy(){
+  const chain=$('cfgChain').value||'arbitrumSepolia';
+  if(!confirm('Deploy smart contract to '+chain+'?\n\nThis will cost gas. Make sure your wallet is funded.'))return;
+  await apiCall('deploy','POST');
+}
+
+// ===== BOT STATUS =====
+function updateBotDots(bots){
+  if(!bots)return;
+  const setDot=(id,on)=>{const el=$(id);if(el)el.className='dot '+(on?'dot-on':'dot-off');};
+  setDot('dotArb',bots.arbitrage);
+  setDot('dotLiq',bots.liquidation);
+  setDot('dotStable',bots.stablecoin);
+  setDot('dDotArb',bots.arbitrage);
+  setDot('dDotLiq',bots.liquidation);
+  setDot('dDotStb',bots.stablecoin);
+  setDot('dotAll',bots.arbitrage||bots.liquidation||bots.stablecoin);
+  const count=(bots.arbitrage?1:0)+(bots.liquidation?1:0)+(bots.stablecoin?1:0);
+  const el=$('activeBotCount');if(el)el.textContent=count;
+}
+
+// ===== LOGS =====
+function addLogLine(entry){
+  const area=$('logArea');if(!area)return;
+  if(currentFilter&&entry.source!==currentFilter)return;
+  const cls='log-'+(entry.type||'info');
+  const time=new Date(entry.time).toLocaleTimeString();
+  area.innerHTML+='<div class="'+cls+'"><span class="log-time">['+time+']</span><span class="log-source">['+entry.source+']</span> '+entry.message+'</div>';
+  area.scrollTop=area.scrollHeight;
+}
+function filterLogs(source,btn){
+  currentFilter=source;
+  $('logArea').innerHTML='';
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  apiCall('logs?limit=200'+(source?'&source='+source:'')).then(logs=>{
+    if(Array.isArray(logs))logs.forEach(addLogLine);
+  });
+}
+
+// ===== STATS =====
+function updateStats(s){
+  if(!s)return;
+  const fmt=sec=>{if(!sec||sec<0)return'--';const h=Math.floor(sec/3600);const m=Math.floor((sec%3600)/60);const ss=sec%60;if(h>0)return h+'h '+m+'m';if(m>0)return m+'m '+ss+'s';return ss+'s';};
+  const set=(ids,val)=>ids.forEach(id=>{const el=$(id);if(el)el.textContent=val;});
+  set(['kUptime','dUptime','sUptime'],fmt(s.uptime));
+  set(['kScans','dScans','sScans'],s.scansCompleted||0);
+  set(['kOpps','dOpps','sOpps'],s.opportunitiesFound||0);
+  set(['kTrades','dTrades','sTrades'],s.tradesExecuted||0);
+
+  // Ratios
+  const scans=s.scansCompleted||0;
+  const opps=s.opportunitiesFound||0;
+  const trades=s.tradesExecuted||0;
+  const el1=$('ratioOpp');if(el1)el1.textContent=scans>0?(opps/scans*100).toFixed(2)+'%':'0%';
+  const el2=$('ratioTrade');if(el2)el2.textContent=opps>0?(trades/opps*100).toFixed(1)+'%':'0%';
+  const el3=$('ratioSPM');if(el3)el3.textContent=s.uptime>60?(scans/(s.uptime/60)).toFixed(1):'0';
+  const el4=$('logCount');if(el4&&state)el4.textContent=state.logsCount||0;
+}
+
+// ===== SOCKET.IO =====
+socket.on('connect',()=>{
+  $('connDot').classList.add('on');
+  const el=$('wsHealth');if(el){el.textContent='Connected';el.className='badge badge-green';}
+});
+socket.on('disconnect',()=>{
+  $('connDot').classList.remove('on');
+  const el=$('wsHealth');if(el){el.textContent='Disconnected';el.className='badge badge-red';}
+});
+socket.on('log',addLogLine);
+socket.on('recentLogs',logs=>{if(Array.isArray(logs))logs.forEach(addLogLine);});
+socket.on('botStatus',updateBotDots);
+socket.on('stats',updateStats);
+socket.on('deployResult',d=>{if(d&&d.contractAddress)$('inContract').value=d.contractAddress;});
+
+// ===== CLOCK =====
+setInterval(()=>{const el=$('clock');if(el)el.textContent=new Date().toLocaleTimeString();},1000);
+
+// ===== INIT =====
+loadState();
+</script>
+</body>
+</html>

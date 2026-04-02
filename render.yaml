@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: flashloan-ai
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node server/app.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: PRIVATE_KEY
+        sync: false
+      - key: ARBITRUM_RPC_URL
+        sync: false

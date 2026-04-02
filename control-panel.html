@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FLASHLOAN-AI | Control Panel</title>
+<style>
+:root{--bg:#080c14;--bg2:#0f1724;--bg3:#162032;--bg4:#1c2942;--accent:#00e5ff;--accent2:#8b5cf6;--green:#22c55e;--red:#ef4444;--yellow:#eab308;--orange:#f97316;--text:#e8ecf4;--text2:#7a8ba8;--border:#1a2744;--glow:0 0 24px rgba(0,229,255,.12)}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter','Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:13px}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:var(--bg2)}::-webkit-scrollbar-thumb{background:var(--accent2);border-radius:3px}
+button{cursor:pointer;font-family:inherit}
+input,select,textarea{font-family:inherit;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px 12px;font-size:12px;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(0,229,255,.1)}
+
+/* Layout */
+.app{display:grid;grid-template-columns:260px 1fr;grid-template-rows:56px 1fr;min-height:100vh}
+.topbar{grid-column:1/-1;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 24px;z-index:10}
+.sidebar{background:var(--bg2);border-right:1px solid var(--border);padding:16px 0;overflow-y:auto}
+.content{padding:24px;overflow-y:auto}
+
+/* Topbar */
+.logo{display:flex;align-items:center;gap:10px}
+.logo-box{width:32px;height:32px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:16px;color:var(--bg)}
+.logo-text{font-size:16px;font-weight:800;background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.top-right{display:flex;align-items:center;gap:16px}
+.net-badge{padding:5px 14px;border-radius:16px;font-size:11px;font-weight:700;cursor:pointer;transition:.2s}
+.net-test{background:rgba(234,179,8,.12);color:var(--yellow);border:1px solid rgba(234,179,8,.25)}
+.net-main{background:rgba(34,197,94,.12);color:var(--green);border:1px solid rgba(34,197,94,.25)}
+.net-badge:hover{filter:brightness(1.2)}
+.top-clock{font-size:11px;color:var(--text2)}
+
+/* Sidebar */
+.sb-section{padding:4px 12px;margin-bottom:4px}
+.sb-label{font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:1px;padding:8px 12px 6px}
+.sb-btn{display:flex;align-items:center;gap:10px;width:100%;background:none;border:none;color:var(--text2);padding:9px 16px;border-radius:6px;font-size:12px;text-align:left;transition:.15s;font-weight:500}
+.sb-btn:hover{background:rgba(255,255,255,.04);color:var(--text)}
+.sb-btn.active{background:rgba(0,229,255,.08);color:var(--accent);font-weight:600}
+.sb-icon{width:18px;text-align:center;font-size:14px}
+.sb-badge{margin-left:auto;padding:2px 7px;border-radius:8px;font-size:10px;font-weight:700}
+.sb-dot{width:6px;height:6px;border-radius:50%;margin-left:auto}
+.dot-on{background:var(--green);box-shadow:0 0 6px var(--green)}
+.dot-off{background:var(--text2)}
+
+/* Panels */
+.panel{display:none}.panel.active{display:block}
+
+/* Cards */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:16px}
+.card-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.card-t{font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px}
+.badge{padding:3px 9px;border-radius:10px;font-size:10px;font-weight:700}
+.b-green{background:rgba(34,197,94,.12);color:var(--green)}
+.b-yellow{background:rgba(234,179,8,.12);color:var(--yellow)}
+.b-red{background:rgba(239,68,68,.12);color:var(--red)}
+.b-blue{background:rgba(0,229,255,.12);color:var(--accent)}
+.b-purple{background:rgba(139,92,246,.12);color:var(--accent2)}
+
+/* Grid */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+@media(max-width:1100px){.g3,.g4{grid-template-columns:1fr 1fr}.g2{grid-template-columns:1fr}}
+
+/* KPI */
+.kpi{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:16px;text-align:center}
+.kpi-v{font-size:24px;font-weight:800;margin:4px 0}
+.kpi-l{font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px}
+
+/* Forms */
+.form-group{margin-bottom:16px}
+.form-label{display:block;font-size:11px;font-weight:600;color:var(--text2);margin-bottom:6px;text-transform:uppercase;letter-spacing:.3px}
+.form-hint{font-size:11px;color:var(--text2);margin-top:4px}
+.form-row{display:flex;gap:12px;align-items:flex-end}
+.form-row .form-group{flex:1}
+select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%237a8ba8' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:30px}
+input[type=range]{width:100%;accent-color:var(--accent);margin:4px 0}
+
+/* Buttons */
+.btn{padding:8px 18px;border-radius:6px;font-size:12px;font-weight:600;border:none;transition:.15s;display:inline-flex;align-items:center;gap:6px}
+.btn:hover{filter:brightness(1.15);transform:translateY(-1px)}
+.btn-primary{background:linear-gradient(135deg,var(--accent),#0099cc);color:var(--bg)}
+.btn-green{background:rgba(34,197,94,.15);color:var(--green);border:1px solid rgba(34,197,94,.3)}
+.btn-red{background:rgba(239,68,68,.15);color:var(--red);border:1px solid rgba(239,68,68,.3)}
+.btn-yellow{background:rgba(234,179,8,.15);color:var(--yellow);border:1px solid rgba(234,179,8,.3)}
+.btn-ghost{background:rgba(255,255,255,.05);color:var(--text2);border:1px solid var(--border)}
+.btn-sm{padding:5px 12px;font-size:11px}
+
+/* Toggle */
+.toggle{position:relative;width:40px;height:22px;display:inline-block}
+.toggle input{display:none}
+.toggle-slider{position:absolute;inset:0;background:var(--bg);border:1px solid var(--border);border-radius:11px;cursor:pointer;transition:.2s}
+.toggle-slider::after{content:'';position:absolute;width:16px;height:16px;border-radius:50%;background:var(--text2);top:2px;left:2px;transition:.2s}
+.toggle input:checked+.toggle-slider{background:rgba(0,229,255,.15);border-color:var(--accent)}
+.toggle input:checked+.toggle-slider::after{background:var(--accent);transform:translateX(18px)}
+
+/* Table */
+.tbl{width:100%;border-collapse:collapse;font-size:12px}
+.tbl th{text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);color:var(--text2);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+.tbl td{padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.03)}
+.tbl tr:hover td{background:rgba(255,255,255,.02)}
+
+/* Steps */
+.step{display:flex;gap:14px;padding:14px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;margin-bottom:10px}
+.step-n{width:30px;height:30px;min-width:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800}
+.step-n-active{background:linear-gradient(135deg,var(--accent),var(--accent2));color:var(--bg)}
+.step-n-done{background:rgba(34,197,94,.2);color:var(--green);border:2px solid var(--green)}
+.step-n-wait{background:var(--bg);color:var(--text2);border:2px solid var(--border)}
+.step-info h4{font-size:13px;margin-bottom:3px}
+.step-info p{font-size:11px;color:var(--text2);line-height:1.5}
+.code{background:var(--bg);padding:10px 14px;border-radius:6px;font-family:'Fira Code',monospace;font-size:11px;border:1px solid var(--border);color:var(--accent);overflow-x:auto;margin-top:6px;position:relative}
+.copy-btn{position:absolute;top:6px;right:6px;background:var(--bg3);border:1px solid var(--border);color:var(--text2);padding:3px 8px;border-radius:4px;font-size:10px;cursor:pointer}
+.copy-btn:hover{color:var(--accent);border-color:var(--accent)}
+
+/* Status list */
+.status-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.03)}
+.status-dot{width:8px;height:8px;border-radius:50%;min-width:8px}
+.status-name{flex:1;font-size:12px}
+.status-val{font-size:11px;font-weight:600}
+
+/* Decision Card */
+.decision{background:var(--bg3);border:1px solid rgba(234,179,8,.2);border-radius:8px;padding:16px;margin-bottom:12px}
+.decision-h{display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:13px;font-weight:700;color:var(--yellow)}
+.decision-options{display:flex;gap:8px;flex-wrap:wrap}
+.decision-opt{padding:8px 16px;border-radius:6px;border:1px solid var(--border);background:var(--bg);font-size:12px;cursor:pointer;transition:.15s}
+.decision-opt:hover{border-color:var(--accent);background:rgba(0,229,255,.05)}
+.decision-opt.selected{border-color:var(--accent);background:rgba(0,229,255,.1);color:var(--accent);font-weight:600}
+
+/* Alert */
+.alert{padding:12px 16px;border-radius:8px;font-size:12px;margin-bottom:12px;display:flex;align-items:flex-start;gap:10px;line-height:1.5}
+.alert-warn{background:rgba(234,179,8,.08);border:1px solid rgba(234,179,8,.2);color:var(--yellow)}
+.alert-info{background:rgba(0,229,255,.08);border:1px solid rgba(0,229,255,.2);color:var(--accent)}
+.alert-danger{background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);color:var(--red)}
+.alert-success{background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);color:var(--green)}
+
+/* Checklist */
+.ck{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.03);font-size:12px;cursor:pointer}
+.ck:hover{background:rgba(255,255,255,.02)}
+.ck-box{width:18px;height:18px;border:2px solid var(--border);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:10px;transition:.15s;min-width:18px}
+.ck.done .ck-box{border-color:var(--green);background:rgba(34,197,94,.15);color:var(--green)}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="logo">
+    <div class="logo-box">F</div>
+    <span class="logo-text">FLASHLOAN-AI</span>
+    <span style="color:var(--text2);font-size:11px;margin-left:4px">Control Panel v2.0</span>
+  </div>
+  <div class="top-right">
+    <span class="net-badge net-test" id="netBadge" onclick="toggleNetwork()">TESTNET</span>
+    <span class="top-clock" id="clock"></span>
+  </div>
+</div>
+
+<!-- SIDEBAR -->
+<div class="sidebar">
+  <div class="sb-label">Dieu Khien</div>
+  <div class="sb-section">
+    <button class="sb-btn active" onclick="showPanel('setup')"><span class="sb-icon">&#9881;</span>Setup & Deploy<span class="sb-badge b-yellow">Start</span></button>
+    <button class="sb-btn" onclick="showPanel('config')"><span class="sb-icon">&#9874;</span>Cau Hinh</button>
+    <button class="sb-btn" onclick="showPanel('decisions')"><span class="sb-icon">&#9888;</span>Quyet Dinh<span class="sb-badge b-red">5</span></button>
+  </div>
+  <div class="sb-label">Strategies</div>
+  <div class="sb-section">
+    <button class="sb-btn" onclick="showPanel('s1')"><span class="sb-icon">&#9889;</span>Liquidation<span class="sb-dot dot-off"></span></button>
+    <button class="sb-btn" onclick="showPanel('s2')"><span class="sb-icon">&#128178;</span>Stablecoin<span class="sb-dot dot-off"></span></button>
+    <button class="sb-btn" onclick="showPanel('s3')"><span class="sb-icon">&#128257;</span>DEX Arbitrage<span class="sb-dot dot-off"></span></button>
+    <button class="sb-btn" onclick="showPanel('s4')"><span class="sb-icon">&#128316;</span>Triangular<span class="sb-dot dot-off"></span></button>
+    <button class="sb-btn" onclick="showPanel('s5')"><span class="sb-icon">&#127793;</span>New Pool<span class="sb-dot dot-off"></span></button>
+    <button class="sb-btn" onclick="showPanel('s6')"><span class="sb-icon">&#9201;</span>Oracle Lag<span class="sb-dot dot-off"></span></button>
+    <button class="sb-btn" onclick="showPanel('s7')"><span class="sb-icon">&#128200;</span>Yield Rebal<span class="sb-dot dot-off"></span></button>
+  </div>
+  <div class="sb-label">Monitoring</div>
+  <div class="sb-section">
+    <button class="sb-btn" onclick="showPanel('logs')"><span class="sb-icon">&#128196;</span>Logs</button>
+    <button class="sb-btn" onclick="showPanel('guide')"><span class="sb-icon">&#128214;</span>Claude Code Guide</button>
+  </div>
+</div>
+
+<!-- CONTENT -->
+<div class="content">
+
+<!-- ====== PANEL: SETUP ====== -->
+<div class="panel active" id="p-setup">
+  <h2 style="font-size:18px;font-weight:800;margin-bottom:20px;display:flex;align-items:center;gap:8px">&#9881; Setup & Deploy</h2>
+
+  <div class="alert alert-info">&#128161; Lam theo tung buoc tu tren xuong. Moi buoc co lenh copy-paste san. Click vao checkbox khi hoan thanh.</div>
+
+  <!-- Step 1 -->
+  <div class="step" id="step1">
+    <div class="step-n step-n-active">1</div>
+    <div class="step-info" style="flex:1">
+      <h4>Cai Dat Moi Truong</h4>
+      <p>Cai Node.js 18+ (nodejs.org), sau do chay lenh:</p>
+      <div class="code">npm install<span class="copy-btn" onclick="copyCode(this)">Copy</span></div>
+      <div style="margin-top:10px"><div class="ck" onclick="toggleCheck(this)"><div class="ck-box"></div>Da cai dat Node.js va npm install thanh cong</div></div>
+    </div>
+  </div>
+
+  <!-- Step 2 -->
+  <div class="step" id="step2">
+    <div class="step-n step-n-wait">2</div>
+    <div class="step-info" style="flex:1">
+      <h4>Tao Wallet Rieng Cho Bot</h4>
+      <p>TAO WALLET MOI (khong dung wallet chinh). Sao luu seed phrase an toan.</p>
+      <div class="alert alert-danger" style="margin-top:8px">&#9888; KHONG BAO GIO dung wallet co tai san lon. Tao wallet moi rieng cho bot.</div>
+      <div style="margin-top:8px">
+        <div class="form-group">
+          <label class="form-label">Private Key (dan vao day de kiem tra format)</label>
+          <input type="password" id="pkInput" placeholder="0x..." style="width:100%" oninput="validatePK(this)">
+          <div class="form-hint" id="pkHint">Phai bat dau bang 0x va co 66 ky tu</div>
+        </div>
+      </div>
+      <div class="ck" onclick="toggleCheck(this)"><div class="ck-box"></div>Da tao wallet moi va luu seed phrase an toan</div>
+    </div>
+  </div>
+
+  <!-- Step 3 -->
+  <div class="step" id="step3">
+    <div class="step-n step-n-wait">3</div>
+    <div class="step-info" style="flex:1">
+      <h4>Dang Ky RPC Endpoint</h4>
+      <p>Dang ky tai Alchemy (khuyen nghi) hoac Infura de lay API key</p>
+      <div class="form-row" style="margin-top:8px">
+        <div class="form-group">
+          <label class="form-label">RPC Provider</label>
+          <select id="rpcProvider">
+            <option value="alchemy">Alchemy (Khuyen nghi)</option>
+            <option value="infura">Infura</option>
+            <option value="quicknode">QuickNode</option>
+            <option value="custom">Custom RPC</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">API Key / RPC URL</label>
+          <input type="text" id="rpcKey" placeholder="Paste API key hoac full RPC URL" style="width:100%">
+        </div>
+      </div>
+      <div class="ck" onclick="toggleCheck(this)"><div class="ck-box"></div>Da co RPC endpoint hoat dong</div>
+    </div>
+  </div>
+
+  <!-- Step 4 -->
+  <div class="step" id="step4">
+    <div class="step-n step-n-wait">4</div>
+    <div class="step-info" style="flex:1">
+      <h4>Lay Testnet ETH</h4>
+      <p>Vao faucet de lay ETH mien phi cho testnet:</p>
+      <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+        <a href="https://faucet.quicknode.com/arbitrum/sepolia" target="_blank" class="btn btn-ghost btn-sm">QuickNode Faucet</a>
+        <a href="https://www.alchemy.com/faucets/arbitrum-sepolia" target="_blank" class="btn btn-ghost btn-sm">Alchemy Faucet</a>
+        <a href="https://sepoliafaucet.com" target="_blank" class="btn btn-ghost btn-sm">Sepolia Faucet</a>
+      </div>
+      <div class="ck" style="margin-top:10px" onclick="toggleCheck(this)"><div class="ck-box"></div>Da nhan testnet ETH vao wallet</div>
+    </div>
+  </div>
+
+  <!-- Step 5 -->
+  <div class="step" id="step5">
+    <div class="step-n step-n-wait">5</div>
+    <div class="step-info" style="flex:1">
+      <h4>Cau Hinh .env</h4>
+      <p>Copy va dien thong tin vao file .env</p>
+      <div class="code">cp .env.example .env<span class="copy-btn" onclick="copyCode(this)">Copy</span></div>
+      <div class="code" style="margin-top:6px;color:var(--text2)">
+# Mo file .env va dien:<br>
+PRIVATE_KEY=<span style="color:var(--yellow)">your_private_key_here</span><br>
+ARBITRUM_RPC_URL=<span style="color:var(--yellow)">your_rpc_url_here</span>
+<span class="copy-btn" onclick="copyCode(this)">Copy</span></div>
+      <div class="ck" style="margin-top:10px" onclick="toggleCheck(this)"><div class="ck-box"></div>Da cau hinh .env</div>
+    </div>
+  </div>
+
+  <!-- Step 6 -->
+  <div class="step" id="step6">
+    <div class="step-n step-n-wait">6</div>
+    <div class="step-info" style="flex:1">
+      <h4>Compile & Deploy (Claude Code)</h4>
+      <p>Mo Claude Code va paste prompt tu file CLAUDE_CODE_GUIDE.md, HOAC chay thu cong:</p>
+      <div class="code">npx hardhat compile<span class="copy-btn" onclick="copyCode(this)">Copy</span></div>
+      <div class="code" style="margin-top:6px">npx hardhat run scripts/deploy.js --network arbitrumSepolia<span class="copy-btn" onclick="copyCode(this)">Copy</span></div>
+      <div class="form-group" style="margin-top:10px">
+        <label class="form-label">Contract Address (sau khi deploy)</label>
+        <input type="text" id="contractAddr" placeholder="0x..." style="width:100%">
+      </div>
+      <div class="ck" onclick="toggleCheck(this)"><div class="ck-box"></div>Contract da deploy thanh cong</div>
+    </div>
+  </div>
+
+  <!-- Step 7 -->
+  <div class="step" id="step7">
+    <div class="step-n step-n-wait">7</div>
+    <div class="step-info" style="flex:1">
+      <h4>Chay Bot (Monitor Mode)</h4>
+      <p>Bat dau chay bot o che do THEO DOI (khong giao dich that)</p>
+      <div class="code">node bot/index.js --all<span class="copy-btn" onclick="copyCode(this)">Copy</span></div>
+      <div class="ck" style="margin-top:10px" onclick="toggleCheck(this)"><div class="ck-box"></div>Bot dang chay va quet thanh cong</div>
+    </div>
+  </div>
+</div>
+
+<!-- ====== PANEL: CONFIG ====== -->
+<div class="panel" id="p-config">
+  <h2 style="font-size:18px;font-weight:800;margin-bottom:20px">&#9874; Cau Hinh He Thong</h2>
+
+  <div class="g2">
+    <!-- Network -->
+    <div class="card">
+      <div class="card-h"><div class="card-t">Network & Wallet</div></div>
+      <div class="form-group">
+        <label class="form-label">Blockchain</label>
+        <select id="cfgChain">
+          <option value="arbitrumSepolia">Arbitrum Sepolia (Testnet)</option>
+          <option value="arbitrum">Arbitrum One (Mainnet)</option>
+          <option value="base">Base (Mainnet)</option>
+          <option value="baseSepolia">Base Sepolia (Testnet)</option>
+          <option value="polygon">Polygon (Mainnet)</option>
+        </select>
+        <div class="form-hint">Testnet = an toan, mien phi. Mainnet = tien that.</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">RPC URL</label>
+        <input type="text" id="cfgRpc" placeholder="https://..." style="width:100%">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Contract Address</label>
+        <input type="text" id="cfgContract" placeholder="0x..." style="width:100%">
+      </div>
+    </div>
+
+    <!-- Trading Params -->
+    <div class="card">
+      <div class="card-h"><div class="card-t">Tham So Giao Dich</div></div>
+      <div class="form-group">
+        <label class="form-label">Auto Execute</label>
+        <div style="display:flex;align-items:center;gap:10px">
+          <label class="toggle"><input type="checkbox" id="cfgAutoExec"><span class="toggle-slider"></span></label>
+          <span id="autoExecLabel" style="font-size:12px;color:var(--red)">TAT - Chi theo doi</span>
+        </div>
+        <div class="form-hint">Bat de bot tu dong thuc hien giao dich. Chi bat khi da test ky!</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Min Profit: <span id="minProfitVal" style="color:var(--accent)">15 bps</span></label>
+        <input type="range" min="1" max="100" value="15" id="cfgMinProfit" oninput="document.getElementById('minProfitVal').textContent=this.value+' bps'">
+        <div class="form-hint">Loi nhuan toi thieu de thuc hien. 15 bps = 0.15%</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Max Slippage: <span id="slippageVal" style="color:var(--accent)">50 bps</span></label>
+        <input type="range" min="5" max="200" value="50" id="cfgSlippage" oninput="document.getElementById('slippageVal').textContent=this.value+' bps'">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Scan Interval: <span id="scanVal" style="color:var(--accent)">3s</span></label>
+        <input type="range" min="1000" max="30000" step="1000" value="3000" id="cfgScan" oninput="document.getElementById('scanVal').textContent=(this.value/1000)+'s'">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Max Gas Price: <span id="gasVal" style="color:var(--accent)">5 gwei</span></label>
+        <input type="range" min="1" max="50" value="5" id="cfgGas" oninput="document.getElementById('gasVal').textContent=this.value+' gwei'">
+      </div>
+    </div>
+  </div>
+
+  <!-- Strategy toggles -->
+  <div class="card">
+    <div class="card-h"><div class="card-t">Bat/Tat Chien Luoc</div></div>
+    <table class="tbl">
+      <thead><tr><th>Chien Luoc</th><th>Trang Thai</th><th>Rui Ro</th><th>Ghi Chu</th></tr></thead>
+      <tbody>
+        <tr><td><strong>#1 Liquidation</strong></td><td><label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label></td><td><span class="badge b-green">Thap</span></td><td style="color:var(--text2)">Khuyen nghi bat</td></tr>
+        <tr><td><strong>#2 Stablecoin Depeg</strong></td><td><label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label></td><td><span class="badge b-green">Rat thap</span></td><td style="color:var(--text2)">Khuyen nghi bat</td></tr>
+        <tr><td><strong>#3 DEX Arbitrage</strong></td><td><label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label></td><td><span class="badge b-yellow">Trung binh</span></td><td style="color:var(--text2)">Khuyen nghi bat</td></tr>
+        <tr><td><strong>#4 Triangular</strong></td><td><label class="toggle"><input type="checkbox"><span class="toggle-slider"></span></label></td><td><span class="badge b-yellow">Trung binh</span></td><td style="color:var(--text2)">Bat khi da quen</td></tr>
+        <tr><td><strong>#5 New Pool</strong></td><td><label class="toggle"><input type="checkbox"><span class="toggle-slider"></span></label></td><td><span class="badge b-red">Cao</span></td><td style="color:var(--text2)">Can review thu cong</td></tr>
+        <tr><td><strong>#6 Oracle Lag</strong></td><td><label class="toggle"><input type="checkbox"><span class="toggle-slider"></span></label></td><td><span class="badge b-red">Cao</span></td><td style="color:var(--text2)">Chuyen gia</td></tr>
+        <tr><td><strong>#7 Yield Rebalance</strong></td><td><label class="toggle"><input type="checkbox"><span class="toggle-slider"></span></label></td><td><span class="badge b-green">Thap</span></td><td style="color:var(--text2)">Bat khi co von</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <button class="btn btn-primary" onclick="saveConfig()">&#128190; Luu Cau Hinh</button>
+  <button class="btn btn-ghost" style="margin-left:8px" onclick="exportConfig()">&#128229; Xuat config.json</button>
+</div>
+
+<!-- ====== PANEL: DECISIONS ====== -->
+<div class="panel" id="p-decisions">
+  <h2 style="font-size:18px;font-weight:800;margin-bottom:20px">&#9888; Quyet Dinh Can Ban Lam</h2>
+  <p style="color:var(--text2);margin-bottom:16px;font-size:12px">Nhung quyet dinh QUAN TRONG ma chi BAN moi co the dua ra. He thong se hoat dong dua tren lua chon cua ban.</p>
+
+  <!-- Decision 1 -->
+  <div class="decision">
+    <div class="decision-h">&#128312; 1. Chon Blockchain Chinh</div>
+    <p style="font-size:12px;color:var(--text2);margin-bottom:10px">Chain nao se la moi truong hoat dong chinh? Anh huong den: gas cost, canh tranh, thanh khoan.</p>
+    <div class="decision-options">
+      <div class="decision-opt selected" onclick="selectOpt(this)">Arbitrum (Khuyen nghi)</div>
+      <div class="decision-opt" onclick="selectOpt(this)">Base</div>
+      <div class="decision-opt" onclick="selectOpt(this)">Polygon</div>
+      <div class="decision-opt" onclick="selectOpt(this)">Multi-chain</div>
+    </div>
+  </div>
+
+  <!-- Decision 2 -->
+  <div class="decision">
+    <div class="decision-h">&#128312; 2. Muc Von Ban Dau (Mainnet)</div>
+    <p style="font-size:12px;color:var(--text2);margin-bottom:10px">So ETH nap vao wallet bot cho gas fees. KHONG anh huong flashloan (flashloan khong can von).</p>
+    <div class="decision-options">
+      <div class="decision-opt" onclick="selectOpt(this)">$25 (Toi thieu)</div>
+      <div class="decision-opt selected" onclick="selectOpt(this)">$50 (Khuyen nghi)</div>
+      <div class="decision-opt" onclick="selectOpt(this)">$100 (Thoai mai)</div>
+      <div class="decision-opt" onclick="selectOpt(this)">$500+ (Pro)</div>
+    </div>
+  </div>
+
+  <!-- Decision 3 -->
+  <div class="decision">
+    <div class="decision-h">&#128312; 3. Muc Do Rui Ro</div>
+    <p style="font-size:12px;color:var(--text2);margin-bottom:10px">Quyet dinh bat nhung chien luoc nao. Anh huong truc tiep den loi nhuan va rui ro.</p>
+    <div class="decision-options">
+      <div class="decision-opt selected" onclick="selectOpt(this)">An toan (1,2,3 only)</div>
+      <div class="decision-opt" onclick="selectOpt(this)">Can bang (1-4, 7)</div>
+      <div class="decision-opt" onclick="selectOpt(this)">Tich cuc (1-5, 7)</div>
+      <div class="decision-opt" onclick="selectOpt(this)">Full (Tat ca 7)</div>
+    </div>
+  </div>
+
+  <!-- Decision 4 -->
+  <div class="decision">
+    <div class="decision-h">&#128312; 4. Thoi Diem Bat Auto-Execute</div>
+    <p style="font-size:12px;color:var(--text2);margin-bottom:10px">Khi nao chuyen tu "chi theo doi" sang "tu dong giao dich"?</p>
+    <div class="decision-options">
+      <div class="decision-opt selected" onclick="selectOpt(this)">Sau 1 tuan monitor</div>
+      <div class="decision-opt" onclick="selectOpt(this)">Sau 3 ngay</div>
+      <div class="decision-opt" onclick="selectOpt(this)">Khi thay 10+ co hoi</div>
+      <div class="decision-opt" onclick="selectOpt(this)">Thu cong (ban quyet dinh)</div>
+    </div>
+  </div>
+
+  <!-- Decision 5 -->
+  <div class="decision">
+    <div class="decision-h">&#128312; 5. Canh Bao & Thong Bao</div>
+    <p style="font-size:12px;color:var(--text2);margin-bottom:10px">Nhan thong bao bang gi khi co hoi hoac loi xuat hien?</p>
+    <div class="decision-options">
+      <div class="decision-opt selected" onclick="selectOpt(this)">Console log (Mac dinh)</div>
+      <div class="decision-opt" onclick="selectOpt(this)">+ Telegram Bot</div>
+      <div class="decision-opt" onclick="selectOpt(this)">+ Discord Webhook</div>
+      <div class="decision-opt" onclick="selectOpt(this)">+ Email</div>
+    </div>
+  </div>
+</div>
+
+<!-- ====== PANEL: STRATEGY 1 (Example) ====== -->
+<div class="panel" id="p-s1">
+  <h2 style="font-size:18px;font-weight:800;margin-bottom:20px">&#9889; Liquidation Sniping</h2>
+  <div class="g4" style="margin-bottom:16px">
+    <div class="kpi"><div class="kpi-l">Trang Thai</div><div class="kpi-v" style="color:var(--yellow);font-size:16px">Monitor</div></div>
+    <div class="kpi"><div class="kpi-l">Vi Tri Theo Doi</div><div class="kpi-v" style="color:var(--accent)">0</div></div>
+    <div class="kpi"><div class="kpi-l">At Risk (HF&lt;1.1)</div><div class="kpi-v" style="color:var(--orange)">0</div></div>
+    <div class="kpi"><div class="kpi-l">Liquidatable</div><div class="kpi-v" style="color:var(--red)">0</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-h">
+      <div class="card-t">Cau Hinh Liquidation</div>
+      <div><button class="btn btn-green btn-sm">&#9654; Start</button> <button class="btn btn-red btn-sm">&#9632; Stop</button></div>
+    </div>
+    <div class="g2">
+      <div>
+        <div class="form-group">
+          <label class="form-label">HF Watch Threshold: <span id="hfVal" style="color:var(--accent)">1.10</span></label>
+          <input type="range" min="100" max="150" value="110" oninput="document.getElementById('hfVal').textContent=(this.value/100).toFixed(2)">
+          <div class="form-hint">Bat dau theo doi khi HF duoi muc nay</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Min Bonus de Execute (%)</label>
+          <select>
+            <option>3% (Nhieu co hoi, loi it)</option>
+            <option selected>5% (Can bang)</option>
+            <option>8% (It co hoi, loi nhieu)</option>
+            <option>10% (Chi vu lon)</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <div class="form-group">
+          <label class="form-label">Protocols</label>
+          <div style="display:flex;flex-direction:column;gap:6px;margin-top:4px">
+            <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer"><input type="checkbox" checked> Aave V3</label>
+            <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer"><input type="checkbox"> Compound V3</label>
+            <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer"><input type="checkbox"> Radiant</label>
+            <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer"><input type="checkbox"> Silo Finance</label>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><div class="card-t">Vi Tri Dang Theo Doi</div></div>
+    <table class="tbl">
+      <thead><tr><th>User</th><th>Health Factor</th><th>Collateral</th><th>Debt</th><th>Bonus</th><th>Action</th></tr></thead>
+      <tbody>
+        <tr><td colspan="6" style="text-align:center;color:var(--text2);padding:24px">Bot chua chay. Click Start de bat dau quet.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ====== PANEL: S2-S7 (Simplified) ====== -->
+<div class="panel" id="p-s2">
+  <h2 style="font-size:18px;font-weight:800;margin-bottom:20px">&#128178; Stablecoin Depeg Arbitrage</h2>
+  <div class="g4" style="margin-bottom:16px">
+    <div class="kpi"><div class="kpi-l">Trang Thai</div><div class="kpi-v" style="color:var(--yellow);font-size:16px">Ready</div></div>
+    <div class="kpi"><div class="kpi-l">Pairs Tracked</div><div class="kpi-v" style="color:var(--accent)">15</div></div>
+    <div class="kpi"><div class="kpi-l">Depegs Today</div><div class="kpi-v" style="color:var(--orange)">0</div></div>
+    <div class="kpi"><div class="kpi-l">Opportunities</div><div class="kpi-v" style="color:var(--green)">0</div></div>
+  </div>
+  <div class="card">
+    <div class="card-h"><div class="card-t">Cau Hinh</div><div><button class="btn btn-green btn-sm">&#9654; Start</button></div></div>
+    <div class="form-group"><label class="form-label">Depeg Threshold: <span id="depegVal" style="color:var(--accent)">0.10%</span></label><input type="range" min="5" max="100" value="10" oninput="document.getElementById('depegVal').textContent=(this.value/100).toFixed(2)+'%'"><div class="form-hint">Chenh lech toi thieu de coi la co hoi</div></div>
+    <div class="form-group"><label class="form-label">Flash Amount ($)</label><select><option>$10,000</option><option selected>$50,000</option><option>$100,000</option><option>$500,000</option></select></div>
+  </div>
+</div>
+
+<div class="panel" id="p-s3"><h2 style="font-size:18px;font-weight:800;margin-bottom:20px">&#128257; DEX-to-DEX Arbitrage</h2><div class="card"><div class="card-h"><div class="card-t">Dang chuan bi...</div></div><p style="color:var(--text2)">Cau hinh tuong tu. Chon token pairs va DEX de quet.</p></div></div>
+<div class="panel" id="p-s4"><h2 style="font-size:18px;font-weight:800;margin-bottom:20px">&#128316; Triangular Arbitrage</h2><div class="card"><div class="card-h"><div class="card-t">Dang chuan bi...</div></div><p style="color:var(--text2)">Chon bo 3 tokens. He thong se quet tat ca routes.</p></div></div>
+<div class="panel" id="p-s5"><h2 style="font-size:18px;font-weight:800;margin-bottom:20px">&#127793; New Pool Sniping</h2><div class="card"><div class="card-h"><div class="card-t">Dang chuan bi...</div></div><p style="color:var(--text2)">Chien luoc nay can review thu cong moi token moi.</p></div></div>
+<div class="panel" id="p-s6"><h2 style="font-size:18px;font-weight:800;margin-bottom:20px">&#9201; Oracle Lag</h2><div class="card"><div class="card-h"><div class="card-t">Dang chuan bi...</div></div><p style="color:var(--text2)">Chien luoc nang cao. Bat khi da co kinh nghiem.</p></div></div>
+<div class="panel" id="p-s7"><h2 style="font-size:18px;font-weight:800;margin-bottom:20px">&#128200; Yield Rebalancing</h2><div class="card"><div class="card-h"><div class="card-t">Dang chuan bi...</div></div><p style="color:var(--text2)">Whitelist protocols va bat tu dong rebalance.</p></div></div>
+
+<!-- ====== PANEL: LOGS ====== -->
+<div class="panel" id="p-logs">
+  <h2 style="font-size:18px;font-weight:800;margin-bottom:20px">&#128196; Logs</h2>
+  <div class="card" style="padding:0">
+    <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:12px;font-weight:600">Bot Activity Log</span>
+      <button class="btn btn-ghost btn-sm" onclick="clearLogs()">Clear</button>
+    </div>
+    <div id="logArea" style="height:500px;overflow-y:auto;padding:12px;font-family:'Fira Code',monospace;font-size:11px;line-height:1.8;background:var(--bg)">
+      <div style="color:var(--text2)">[System] Control Panel loaded. Configure settings and start bots.</div>
+      <div style="color:var(--accent)">[Info] Testnet mode active. No real funds at risk.</div>
+      <div style="color:var(--yellow)">[Wait] Bots not started. Complete setup steps first.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ====== PANEL: CLAUDE CODE GUIDE ====== -->
+<div class="panel" id="p-guide">
+  <h2 style="font-size:18px;font-weight:800;margin-bottom:20px">&#128214; Huong Dan Dung Claude Code</h2>
+
+  <div class="alert alert-info">&#128161; Copy PROMPT ben duoi va paste vao Claude Code. Claude Code se tu dong viet toan bo code va deploy.</div>
+
+  <div class="card">
+    <div class="card-h"><div class="card-t">Cach 1: Copy nhanh (1 lenh)</div></div>
+    <p style="font-size:12px;color:var(--text2);margin-bottom:8px">Mo terminal, chay:</p>
+    <div class="code">claude<span class="copy-btn" onclick="copyCode(this)">Copy</span></div>
+    <p style="font-size:12px;color:var(--text2);margin:10px 0 8px">Khi Claude Code san sang, paste:</p>
+    <div class="code" style="max-height:200px;overflow-y:auto">
+Doc file CLAUDE_CODE_GUIDE.md trong thu muc hien tai va thuc hien TOAN BO cac buoc trong do. Tao project flashloan-ai hoan chinh voi smart contracts, bot code, tests, va deploy scripts. Dam bao: (1) Solidity compile 0 errors, (2) Tests pass, (3) Bot connect duoc toi RPC. Su dung Arbitrum Sepolia testnet.
+<span class="copy-btn" onclick="copyCode(this)">Copy</span></div>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><div class="card-t">Cach 2: Tung buoc</div></div>
+    <div class="step">
+      <div class="step-n step-n-active">1</div>
+      <div class="step-info"><h4>Khoi tao project</h4>
+        <div class="code">mkdir flashloan-ai && cd flashloan-ai && npm init -y && npm install ethers dotenv @aave/v3-core @openzeppelin/contracts && npm install -D hardhat @nomicfoundation/hardhat-toolbox<span class="copy-btn" onclick="copyCode(this)">Copy</span></div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-n step-n-active">2</div>
+      <div class="step-info"><h4>Paste prompt vao Claude Code</h4><p>Mo Claude Code (lenh: claude) roi paste noi dung tu CLAUDE_CODE_GUIDE.md</p></div>
+    </div>
+    <div class="step">
+      <div class="step-n step-n-active">3</div>
+      <div class="step-info"><h4>Kiem tra ket qua</h4>
+        <div class="code">npx hardhat compile && npx hardhat test<span class="copy-btn" onclick="copyCode(this)">Copy</span></div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-n step-n-active">4</div>
+      <div class="step-info"><h4>Deploy testnet</h4>
+        <div class="code">npx hardhat run scripts/deploy.js --network arbitrumSepolia<span class="copy-btn" onclick="copyCode(this)">Copy</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- end content -->
+</div><!-- end app -->
+
+<script>
+function showPanel(name){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.sb-btn').forEach(b=>b.classList.remove('active'));
+  const panel=document.getElementById('p-'+name);
+  if(panel)panel.classList.add('active');
+  event.currentTarget.classList.add('active');
+}
+
+function toggleNetwork(){
+  const b=document.getElementById('netBadge');
+  if(b.classList.contains('net-test')){b.classList.remove('net-test');b.classList.add('net-main');b.textContent='MAINNET';addLog('warn','Network changed to MAINNET. Real funds!');}
+  else{b.classList.remove('net-main');b.classList.add('net-test');b.textContent='TESTNET';addLog('info','Network changed to TESTNET. Safe mode.');}
+}
+
+function toggleCheck(el){
+  el.classList.toggle('done');
+  const box=el.querySelector('.ck-box');
+  box.innerHTML=el.classList.contains('done')?'&#10003;':'';
+  updateStepNumbers();
+}
+
+function updateStepNumbers(){
+  document.querySelectorAll('.step').forEach((s,i)=>{
+    const checks=s.querySelectorAll('.ck.done');
+    const total=s.querySelectorAll('.ck');
+    const num=s.querySelector('.step-n');
+    if(checks.length===total.length&&total.length>0){num.className='step-n step-n-done';}
+    else if(i===0||document.querySelectorAll('.step')[i-1]?.querySelector('.ck.done')){num.className='step-n step-n-active';}
+    else{num.className='step-n step-n-wait';}
+  });
+}
+
+function selectOpt(el){
+  el.parentElement.querySelectorAll('.decision-opt').forEach(o=>o.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+function copyCode(btn){
+  const code=btn.parentElement.textContent.replace('Copy','').trim();
+  navigator.clipboard.writeText(code).then(()=>{btn.textContent='Copied!';setTimeout(()=>btn.textContent='Copy',1500);});
+}
+
+function validatePK(input){
+  const h=document.getElementById('pkHint');
+  if(input.value.length===0){h.textContent='Phai bat dau bang 0x va co 66 ky tu';h.style.color='var(--text2)';}
+  else if(!input.value.startsWith('0x')){h.textContent='Phai bat dau bang 0x';h.style.color='var(--red)';}
+  else if(input.value.length!==66){h.textContent=`${input.value.length}/66 ky tu`;h.style.color='var(--yellow)';}
+  else{h.textContent='Format chinh xac!';h.style.color='var(--green)';}
+}
+
+function addLog(type,msg){
+  const area=document.getElementById('logArea');
+  const colors={info:'var(--accent)',warn:'var(--yellow)',error:'var(--red)',trade:'var(--green)',system:'var(--text2)'};
+  const time=new Date().toLocaleTimeString();
+  area.innerHTML+=`<div style="color:${colors[type]||'var(--text)'}">[${time}] ${msg}</div>`;
+  area.scrollTop=area.scrollHeight;
+}
+
+function clearLogs(){document.getElementById('logArea').innerHTML='<div style="color:var(--text2)">[System] Logs cleared.</div>';}
+
+function saveConfig(){addLog('info','Config saved successfully.');alert('Cau hinh da luu!');}
+function exportConfig(){
+  const cfg={chain:document.getElementById('cfgChain')?.value,autoExecute:document.getElementById('cfgAutoExec')?.checked,minProfitBps:document.getElementById('cfgMinProfit')?.value,slippageBps:document.getElementById('cfgSlippage')?.value,scanIntervalMs:document.getElementById('cfgScan')?.value,maxGasGwei:document.getElementById('cfgGas')?.value};
+  const blob=new Blob([JSON.stringify(cfg,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='config.json';a.click();
+  addLog('info','Config exported as config.json');
+}
+
+// Auto-execute toggle label
+document.getElementById('cfgAutoExec')?.addEventListener('change',function(){
+  const l=document.getElementById('autoExecLabel');
+  if(this.checked){l.textContent='BAT - Tu dong giao dich';l.style.color='var(--green)';}
+  else{l.textContent='TAT - Chi theo doi';l.style.color='var(--red)';}
+});
+
+// Clock
+setInterval(()=>{document.getElementById('clock').textContent=new Date().toLocaleTimeString();},1000);
+
+// Welcome log
+setTimeout(()=>addLog('system','Control Panel ready. Start with Setup & Deploy.'),500);
+</script>
+</body>
+</html>

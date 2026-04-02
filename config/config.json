@@ -1,0 +1,85 @@
+{
+  "_comment": "FLASHLOAN-AI Configuration - Arbitrum Network",
+  "_warning": "NEVER commit privateKey to git! Use .env instead",
+
+  "network": "arbitrum",
+  "chainId": 42161,
+  "rpcUrl": "https://arb1.arbitrum.io/rpc",
+
+  "privateKey": "YOUR_PRIVATE_KEY_HERE",
+  "contractAddress": "YOUR_DEPLOYED_CONTRACT_ADDRESS",
+
+  "dexConfigs": {
+    "uniswapV3": {
+      "type": "v3",
+      "router": "0xE592427A0AEce92De3Edee1F18E0157C05861564",
+      "quoter": "0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6",
+      "fees": [500, 3000, 10000]
+    },
+    "sushiswap": {
+      "type": "v2",
+      "router": "0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506"
+    },
+    "camelot": {
+      "type": "v2",
+      "router": "0xc873fEcbd354f5A56E00E710B90EF4201db2448d"
+    }
+  },
+
+  "tokenPairs": [
+    {
+      "name": "WETH/USDC",
+      "tokenA": "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",
+      "tokenB": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+      "tokenC": "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
+      "decimals": 18,
+      "amounts": [1, 5, 10, 50]
+    },
+    {
+      "name": "WETH/USDT",
+      "tokenA": "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",
+      "tokenB": "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
+      "decimals": 18,
+      "amounts": [1, 5, 10]
+    },
+    {
+      "name": "WETH/ARB",
+      "tokenA": "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",
+      "tokenB": "0x912CE59144191C1204E64559FE8253a0e49E6548",
+      "decimals": 18,
+      "amounts": [1, 5, 10]
+    }
+  ],
+
+  "scanIntervalMs": 3000,
+  "minProfitBps": 15,
+  "flashloanFeeBps": 5,
+  "gasEstimateGwei": 0.1,
+  "autoExecute": false,
+  "maxGasPrice": "5000000000",
+
+  "aavePoolProvider": {
+    "arbitrum": "0xa97684ead0e402dC232d5A977953DF7ECBaB3CDb",
+    "base": "0xe20fCBdBfFC4Dd138cE8b2E6FBb6CB49777ad64D",
+    "polygon": "0xa97684ead0e402dC232d5A977953DF7ECBaB3CDb",
+    "ethereum": "0x2f39d218133AFaB8F2B819B1066c7E434Ad94E9e"
+  },
+
+  "configBase": {
+    "network": "base",
+    "chainId": 8453,
+    "rpcUrl": "https://mainnet.base.org",
+    "dexConfigs": {
+      "uniswapV3": {
+        "type": "v3",
+        "router": "0x2626664c2603336E57B271c5C0b26F421741e481",
+        "quoter": "0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a",
+        "fees": [500, 3000, 10000]
+      },
+      "aerodrome": {
+        "type": "v2",
+        "router": "0xcF77a3Ba9A5CA399B7c97c74d54e5b1Beb874E43"
+      }
+    }
+  }
+}
