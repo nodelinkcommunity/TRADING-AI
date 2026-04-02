@@ -337,10 +337,13 @@ app.post("/api/credentials", (req, res) => {
   const { privateKey, rpcUrl, arbiscanKey, telegramToken, telegramChatId } = req.body;
 
   if (privateKey) {
-    if (!/^0x[a-fA-F0-9]{64}$/.test(privateKey)) {
-      return res.status(400).json({ error: "Invalid private key format (expected 0x + 64 hex characters)" });
+    // Auto-add 0x prefix if missing (MetaMask exports without it)
+    let pk = privateKey.trim();
+    if (/^[a-fA-F0-9]{64}$/.test(pk)) pk = "0x" + pk;
+    if (!/^0x[a-fA-F0-9]{64}$/.test(pk)) {
+      return res.status(400).json({ error: "Invalid private key format (expected 64 hex characters, with or without 0x prefix)" });
     }
-    updateEnvVar("PRIVATE_KEY", privateKey);
+    updateEnvVar("PRIVATE_KEY", pk);
     addLog("info", "server", "Private key updated");
   }
 
