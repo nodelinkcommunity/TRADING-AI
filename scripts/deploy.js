@@ -11,10 +11,10 @@ const hre = require("hardhat");
 
 // Aave V3 Pool Address Provider cho tung chain
 const AAVE_PROVIDERS = {
-  421614: "0xa97684ead0e402dC232d5A977953DF7ECBaB3CDb", // Arbitrum Sepolia
+  421614: "0xB25a5D144626a0D488e52AE717A051a2E9997076", // Arbitrum Sepolia (testnet)
   42161: "0xa97684ead0e402dC232d5A977953DF7ECBaB3CDb", // Arbitrum Mainnet
   8453: "0xe20fCBdBfFC4Dd138cE8b2E6FBb6CB49777ad64D", // Base
-  84532: "0xe20fCBdBfFC4Dd138cE8b2E6FBb6CB49777ad64D", // Base Sepolia
+  84532: "0xE4C23309117Aa30342BFaae6c95c6478e0A4Ad00", // Base Sepolia (testnet)
   137: "0xa97684ead0e402dC232d5A977953DF7ECBaB3CDb", // Polygon
   1: "0x2f39d218133AFaB8F2B819B1066c7E434Ad94E9e", // Ethereum
 };
