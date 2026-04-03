@@ -1628,28 +1628,35 @@ app.post("/api/trades/record", requireAuth, (req, res) => {
 
 // POST generate a test trade
 app.post("/api/trades/test", requireAuth, (req, res) => {
+  const volumeUsd = config.flashAmountUsd || 50000;
+  const gasCostUsd = 0.5 + Math.random() * 1.5; // $0.50 - $2.00
+  const profitBps = Math.round(20 + Math.random() * 80); // 20 - 100 bps (always positive for test)
+  const grossProfitUsd = (volumeUsd * profitBps) / 10000;
+  const netProfitUsd = grossProfitUsd - gasCostUsd;
+  const netProfitBps = Math.round((netProfitUsd / volumeUsd) * 10000);
+  const buyPrice = 3400 + Math.random() * 100;
+  const sellPrice = buyPrice * (1 + profitBps / 10000);
   const sampleTrade = {
     id: Date.now(),
     timestamp: Date.now(),
     paper: true,
     test: true,
-    strategy: ["dexArbitrage","triangular","liquidation","stablecoin"][Math.floor(Math.random()*4)],
-    chain: config.chains?.[0] || "arbitrum",
+    strategy: ["dexArbitrage","triangular","stablecoin"][Math.floor(Math.random()*3)],
+    chain: config.chain || "arbitrum",
     pair: ["WETH/USDC","WETH/USDT","WETH/ARB","USDC/USDT"][Math.floor(Math.random()*4)],
     type: Math.random()>0.5?"SIMPLE":"TRIANGULAR",
-    volumeUsd: Math.round(Math.random()*100000),
-    buyPrice: 3400+Math.random()*100,
-    sellPrice: 3400+Math.random()*100,
-    gasCostUsd: Math.random()*2,
-    profitUsd: (Math.random()-0.3)*50,
-    profitBps: Math.round((Math.random()-0.3)*100),
-    success: Math.random()>0.2,
-    txHash: "0x"+[...Array(64)].map(()=>Math.floor(Math.random()*16).toString(16)).join(''),
+    volumeUsd,
+    buyPrice,
+    sellPrice,
+    gasCostUsd,
+    profitUsd: netProfitUsd,
+    profitBps: netProfitBps,
+    success: netProfitUsd > 0,
+    txHash: "paper-test-"+Date.now().toString(16),
     gasUsed: Math.round(200000+Math.random()*300000),
     blockNumber: Math.round(200000000+Math.random()*1000000),
     aiScore: Math.round(40+Math.random()*60),
   };
-  sampleTrade.profitUsd = sampleTrade.success ? Math.abs(sampleTrade.profitUsd) : -Math.abs(sampleTrade.gasCostUsd);
   tradeHistory.unshift(sampleTrade);
   if(tradeHistory.length > 10000) tradeHistory = tradeHistory.slice(0, 10000);
   saveTrades();
