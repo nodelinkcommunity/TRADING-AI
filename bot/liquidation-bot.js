@@ -409,9 +409,9 @@ class LiquidationExecutor {
             maxPriorityFeePerGas: feeData.maxPriorityFeePerGas,
           }
         );
-      } else {
-        // Fallback: direct liquidation call from EOA (requires holding debt tokens)
-        console.warn("[WARNING] No flashloan contract configured. Falling back to direct liquidationCall from EOA. This requires the wallet to hold sufficient debt tokens.");
+      } else if (process.env.ALLOW_DIRECT_LIQUIDATION === "true") {
+        // Direct EOA liquidation — only allowed with explicit opt-in flag
+        console.warn("[EOA MODE] Direct liquidationCall from wallet. Requires holding debt tokens.");
 
         const gasEstimate = await this.pool.liquidationCall.estimateGas(
           opportunity.collateralAsset,
@@ -437,6 +437,8 @@ class LiquidationExecutor {
             maxPriorityFeePerGas: feeData.maxPriorityFeePerGas,
           }
         );
+      } else {
+        throw new Error("No flashloan contract configured and ALLOW_DIRECT_LIQUIDATION not set. Cannot execute liquidation.");
       }
 
       console.log(`TX sent: ${tx.hash}`);
@@ -468,16 +470,16 @@ class LiquidationExecutor {
 
 // ============ Main Bot ============
 
-// Chains that support liquidation (must have Aave deployment)
-const LIQUIDATION_SUPPORTED_CHAINS = Object.keys(CHAIN_CONFIG);
+// Use shared capability matrix for chain validation
+const { supportsStrategy, getSupportedChains } = require("../config/chain-capabilities");
 
 class LiquidationBot {
   constructor(chain = "arbitrum") {
     this.chainName = chain;
     this.chainConfig = CHAIN_CONFIG[chain];
-    if (!this.chainConfig) {
-      const supported = LIQUIDATION_SUPPORTED_CHAINS.join(", ");
-      throw new Error(`Liquidation bot does not support chain "${chain}". Supported chains: ${supported}. Liquidation requires an Aave V3 deployment.`);
+    if (!this.chainConfig || !supportsStrategy(chain, "liquidation")) {
+      const supported = getSupportedChains("liquidation").join(", ");
+      throw new Error(`Liquidation bot does not support chain "${chain}". Supported chains: ${supported}. Liquidation requires Aave V3 + CHAIN_CONFIG entry.`);
     }
     this.isRunning = false;
     this.stats = {
@@ -510,11 +512,22 @@ class LiquidationBot {
     // Setup tracker
     this.tracker = new PositionTracker(this.provider, this.chainConfig);
 
-    // Setup executor
+    // Setup executor — fail-closed: require flashloan contract in live mode
     if (this.wallet) {
       const flashloanAddress = process.env.FLASHLOAN_CONTRACT_ADDRESS || null;
-      if (!flashloanAddress) {
-        console.warn("[WARNING] FLASHLOAN_CONTRACT_ADDRESS not set. Bot will fall back to direct EOA liquidation (requires holding debt tokens).");
+      const isPaperTrading = process.env.PAPER_TRADING === "true";
+      const allowDirectLiquidation = process.env.ALLOW_DIRECT_LIQUIDATION === "true";
+
+      if (!flashloanAddress && !isPaperTrading && !allowDirectLiquidation) {
+        throw new Error(
+          "FLASHLOAN_CONTRACT_ADDRESS not set. Liquidation bot refuses to start in live mode without a flashloan executor contract. " +
+          "Deploy the LiquidationExecutor first, or set PAPER_TRADING=true for monitoring, or ALLOW_DIRECT_LIQUIDATION=true for EOA mode (advanced/debug only)."
+        );
+      }
+      if (!flashloanAddress && isPaperTrading) {
+        console.log("[INFO] Paper trading mode — no flashloan contract needed, monitoring only.");
+      } else if (!flashloanAddress && allowDirectLiquidation) {
+        console.warn("[WARNING] ALLOW_DIRECT_LIQUIDATION=true — using direct EOA liquidation. This requires holding debt tokens and changes the risk model.");
       } else {
         console.log(`Flashloan contract: ${flashloanAddress}`);
       }

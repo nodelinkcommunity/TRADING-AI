@@ -17,6 +17,7 @@ const { authenticator } = require("otplib");
 const QRCode = require("qrcode");
 const { ethers } = require("ethers");
 const nodemailer = require("nodemailer");
+const { supportsStrategy, getCapabilities, CHAIN_CAPABILITIES } = require("../config/chain-capabilities");
 
 const app = express();
 const server = http.createServer(app);
@@ -163,61 +164,62 @@ app.get("/api/auth/check-wallet/:address", (req, res) => {
   });
 });
 
-// POST register first user (only works if no users exist, requires setup token)
-app.post("/api/auth/register", async (req, res) => {
-  const auth = loadAuth();
-  if (auth.setupComplete) {
-    return res.status(403).json({ error: "Registration closed. User already exists." });
+// Legacy /api/auth/register removed — bootstrap registration now uses
+// wallet-login with setupToken (same security: nonce + timestamp + signature).
+// This ensures ONE auth path for all wallet operations.
+
+// ============ SHARED WALLET CHALLENGE VERIFIER ============
+// Used by wallet-login, link-wallet — single code path for nonce+timestamp+signature
+
+/**
+ * Verify a wallet signature challenge with server-issued nonce and fresh timestamp.
+ * @param {{ address: string, signature: string, message: string }} params
+ * @returns {{ success: true, recoveredAddress: string } | { success: false, error: string, status: number }}
+ */
+function verifyWalletChallenge({ address, signature, message }) {
+  if (!address || !signature || !message) {
+    return { success: false, error: "Address, signature, and message required", status: 400 };
   }
 
-  // Bootstrap protection: require setup token from server console
-  const { setupToken: clientSetupToken } = req.body;
-  if (!validateSetupToken(clientSetupToken)) {
-    return res.status(403).json({ error: "Invalid setup token. Check server console for the token." });
+  // 1. Verify timestamp freshness (5 min window)
+  const tsMatch = message.match(/Timestamp:\s*(\d+)/);
+  if (!tsMatch) {
+    return { success: false, error: "Message must contain a valid timestamp", status: 400 };
+  }
+  const ts = parseInt(tsMatch[1]);
+  if (Math.abs(Date.now() - ts) > 300000) {
+    return { success: false, error: "Signature expired. Please sign again.", status: 401 };
   }
 
-  const { email, password, walletAddress, walletSignature, walletMessage } = req.body;
-  if (!email || !password) {
-    return res.status(400).json({ error: "Email and password required" });
-  }
-  if (password.length < 8) {
-    return res.status(400).json({ error: "Password must be at least 8 characters" });
-  }
-  // Wallet binding is mandatory during registration
-  if (!walletAddress || !walletSignature || !walletMessage) {
-    return res.status(400).json({ error: "Wallet binding is required. Connect and sign with your Web3 wallet." });
-  }
-
-  // Verify wallet signature
+  // 2. Recover signer address
   let recoveredAddress;
   try {
-    recoveredAddress = ethers.verifyMessage(walletMessage, walletSignature);
+    recoveredAddress = ethers.verifyMessage(message, signature);
   } catch (err) {
-    return res.status(400).json({ error: "Invalid wallet signature" });
+    return { success: false, error: "Invalid signature", status: 401 };
   }
-  if (recoveredAddress.toLowerCase() !== walletAddress.toLowerCase()) {
-    return res.status(400).json({ error: "Wallet signature mismatch" });
+  if (recoveredAddress.toLowerCase() !== address.toLowerCase()) {
+    return { success: false, error: "Signature does not match address", status: 401 };
   }
 
-  const hashedPassword = await bcrypt.hash(password, 12);
-  const user = {
-    id: crypto.randomUUID(),
-    email: email.toLowerCase().trim(),
-    password: hashedPassword,
-    totpEnabled: false,
-    totpSecret: null,
-    walletAddress: recoveredAddress,
-    createdAt: Date.now(),
-  };
+  // 3. Verify server-issued nonce (one-time use)
+  const nonceMatch = message.match(/Nonce:\s*([a-f0-9]+)/i);
+  if (!nonceMatch) {
+    return { success: false, error: "Message must contain server-issued nonce", status: 400 };
+  }
+  const storedNonce = authNonces[recoveredAddress.toLowerCase()];
+  if (!storedNonce || storedNonce.nonce !== nonceMatch[1]) {
+    return { success: false, error: "Invalid or expired nonce. Request a new one.", status: 401 };
+  }
+  if (Date.now() > storedNonce.expiresAt) {
+    delete authNonces[recoveredAddress.toLowerCase()];
+    return { success: false, error: "Nonce expired. Request a new one.", status: 401 };
+  }
+  // Consume nonce
+  delete authNonces[recoveredAddress.toLowerCase()];
 
-  auth.users.push(user);
-  auth.setupComplete = true;
-  saveAuth(auth);
-  clearSetupToken(); // Registration complete — destroy setup token
-
-  const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
-  res.json({ success: true, token, message: "Account created with wallet bound" });
-});
+  return { success: true, recoveredAddress };
+}
 
 // GET nonce for wallet authentication (server-side challenge)
 app.get("/api/auth/nonce/:address", (req, res) => {
@@ -232,47 +234,11 @@ app.post("/api/auth/wallet-login", (req, res) => {
   const auth = loadAuth();
   const { address, signature, message, totpCode } = req.body;
 
-  if (!address || !signature || !message) {
-    return res.status(400).json({ error: "Address, signature, and message required" });
+  // Unified wallet challenge verification (nonce + timestamp + signature)
+  const challenge = verifyWalletChallenge({ address, signature, message });
+  if (!challenge.success) {
+    return res.status(challenge.status).json({ error: challenge.error });
   }
-
-  // Verify the message contains a recent timestamp (prevent replay attacks)
-  const tsMatch = message.match(/Timestamp:\s*(\d+)/);
-  if (!tsMatch) {
-    return res.status(400).json({ error: "Message must contain a valid timestamp" });
-  }
-  const ts = parseInt(tsMatch[1]);
-  if (Math.abs(Date.now() - ts) > 300000) { // 5 min window
-    return res.status(401).json({ error: "Signature expired. Please sign again." });
-  }
-
-  // Recover signer address from signature
-  let recoveredAddress;
-  try {
-    recoveredAddress = ethers.verifyMessage(message, signature);
-  } catch (err) {
-    return res.status(401).json({ error: "Invalid signature" });
-  }
-
-  if (recoveredAddress.toLowerCase() !== address.toLowerCase()) {
-    return res.status(401).json({ error: "Signature does not match address" });
-  }
-
-  // Verify server-issued nonce
-  const nonceMatch = message.match(/Nonce:\s*([a-f0-9]+)/i);
-  if (!nonceMatch) {
-    return res.status(400).json({ error: "Message must contain server-issued nonce" });
-  }
-  const storedNonce = authNonces[recoveredAddress.toLowerCase()];
-  if (!storedNonce || storedNonce.nonce !== nonceMatch[1]) {
-    return res.status(401).json({ error: "Invalid or expired nonce. Request a new one." });
-  }
-  if (Date.now() > storedNonce.expiresAt) {
-    delete authNonces[recoveredAddress.toLowerCase()];
-    return res.status(401).json({ error: "Nonce expired. Request a new one." });
-  }
-  // Consume nonce (one-time use)
-  delete authNonces[recoveredAddress.toLowerCase()];
 
   // Find user by wallet address
   let user = auth.users.find(u => u.walletAddress?.toLowerCase() === address.toLowerCase());
@@ -400,32 +366,11 @@ app.post("/api/auth/link-wallet", requireAuth, (req, res) => {
 
   const { address, signature, message } = req.body;
 
-  let recoveredAddress;
-  try {
-    recoveredAddress = ethers.verifyMessage(message, signature);
-  } catch (err) {
-    return res.status(401).json({ error: "Invalid signature" });
+  // Unified wallet challenge verification
+  const challenge = verifyWalletChallenge({ address, signature, message });
+  if (!challenge.success) {
+    return res.status(challenge.status).json({ error: challenge.error });
   }
-
-  if (recoveredAddress.toLowerCase() !== address.toLowerCase()) {
-    return res.status(401).json({ error: "Signature mismatch" });
-  }
-
-  // Verify server-issued nonce
-  const nonceMatch = message.match(/Nonce:\s*([a-f0-9]+)/i);
-  if (!nonceMatch) {
-    return res.status(400).json({ error: "Message must contain server-issued nonce" });
-  }
-  const storedNonce = authNonces[recoveredAddress.toLowerCase()];
-  if (!storedNonce || storedNonce.nonce !== nonceMatch[1]) {
-    return res.status(401).json({ error: "Invalid or expired nonce. Request a new one." });
-  }
-  if (Date.now() > storedNonce.expiresAt) {
-    delete authNonces[recoveredAddress.toLowerCase()];
-    return res.status(401).json({ error: "Nonce expired. Request a new one." });
-  }
-  // Consume nonce (one-time use)
-  delete authNonces[recoveredAddress.toLowerCase()];
 
   user.walletAddress = address.toLowerCase();
   saveAuth(auth);
@@ -652,13 +597,13 @@ const DEFAULT_CONFIG = {
       triplets: ["WETH/USDC/DAI", "WETH/ARB/USDC"],
     },
     liquidation: {
-      enabled: true,
+      enabled: false, // Disabled by default — requires mainnet chain with Aave V3 + deployed LiquidationExecutor
       hfThreshold: 1.1,
       minBonus: 5,
       protocols: ["aave"],
     },
     stablecoin: {
-      enabled: true,
+      enabled: false, // Disabled by default — requires mainnet chain with stablecoin registries
       depegThreshold: 10,
       flashAmount: 50000,
       assets: ["USDC", "USDT", "DAI", "FRAX", "MIM", "USDCe"],
@@ -954,6 +899,13 @@ const BOT_FILES = {
   stablecoin: "bot/stablecoin-scanner.js",
 };
 
+// Map bot names to strategy names for capability checking
+const BOT_STRATEGY_MAP = {
+  arbitrage: "arbitrage",
+  liquidation: "liquidation",
+  stablecoin: "stablecoin",
+};
+
 function startBot(botName) {
   if (botProcesses[botName]) {
     addLog("warn", "server", `Bot "${botName}" is already running`);
@@ -964,6 +916,23 @@ function startBot(botName) {
   if (!file) {
     addLog("error", "server", `Unknown bot: "${botName}"`);
     return false;
+  }
+
+  // Chain capability check — fail-closed
+  const currentChain = config.chain || "arbitrumSepolia";
+  const strategyKey = BOT_STRATEGY_MAP[botName];
+  if (strategyKey && !supportsStrategy(currentChain, strategyKey)) {
+    addLog("error", botName, `Cannot start ${botName}: chain "${currentChain}" does not support ${strategyKey}. Switch to a supported chain first.`);
+    return false;
+  }
+
+  // Liquidation-specific: require deployed executor contract in live mode
+  if (botName === "liquidation" && !config.paperTrading) {
+    const liqAddr = config.liquidationContractAddresses?.[currentChain] || config.liquidationContractAddress || "";
+    if (!liqAddr) {
+      addLog("error", botName, `Cannot start liquidation in live mode: LiquidationExecutor not deployed on ${currentChain}. Deploy it first or enable paper trading.`);
+      return false;
+    }
   }
 
   const botPath = path.join(__dirname, "..", file);
@@ -1397,19 +1366,49 @@ app.post("/api/bot/:name/stop", requireAuth, (req, res) => {
   res.json({ success: ok, message: ok ? `Bot "${name}" stopping` : `Bot "${name}" not running` });
 });
 
-// POST start all enabled bots
+// POST start all enabled bots (respects chain capabilities)
 app.post("/api/bot/start-all", requireAuth, (req, res) => {
   const results = {};
+  const skipped = [];
   const strats = config.strategies;
+  const currentChain = config.chain || "arbitrumSepolia";
+
   // Arbitrage bot handles: dexArbitrage, triangular, newPool, oracleLag, yieldRebalance
   const arbStrategies = ["dexArbitrage", "triangular", "newPool", "oracleLag", "yieldRebalance"];
   const anyArbEnabled = arbStrategies.some(s => strats[s]?.enabled);
   if (anyArbEnabled) results.arbitrage = startBot("arbitrage");
-  if (strats.liquidation?.enabled) results.liquidation = startBot("liquidation");
-  if (strats.stablecoin?.enabled) results.stablecoin = startBot("stablecoin");
+
+  if (strats.liquidation?.enabled) {
+    if (supportsStrategy(currentChain, "liquidation")) {
+      results.liquidation = startBot("liquidation");
+    } else {
+      skipped.push(`liquidation (unsupported on ${currentChain})`);
+      addLog("warn", "server", `Skipped liquidation: unsupported on ${currentChain}`);
+    }
+  }
+  if (strats.stablecoin?.enabled) {
+    if (supportsStrategy(currentChain, "stablecoin")) {
+      results.stablecoin = startBot("stablecoin");
+    } else {
+      skipped.push(`stablecoin (unsupported on ${currentChain})`);
+      addLog("warn", "server", `Skipped stablecoin: unsupported on ${currentChain}`);
+    }
+  }
+
   const started = Object.values(results).filter(Boolean).length;
-  addLog("info", "server", `Start-all: ${started} bot(s) launched`);
-  res.json({ success: true, results });
+  addLog("info", "server", `Start-all: ${started} bot(s) launched${skipped.length ? `, skipped: ${skipped.join(", ")}` : ""}`);
+  res.json({ success: true, results, skipped });
+});
+
+// GET chain capabilities (public — needed before login for UI)
+app.get("/api/chain-capabilities", (req, res) => {
+  res.json({ success: true, capabilities: CHAIN_CAPABILITIES });
+});
+
+// GET capabilities for current chain
+app.get("/api/chain-capabilities/:chain", (req, res) => {
+  const caps = getCapabilities(req.params.chain);
+  res.json({ success: true, chain: req.params.chain, ...caps });
 });
 
 // POST stop all running bots

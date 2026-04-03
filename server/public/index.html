@@ -1449,17 +1449,25 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(19
       <button class="btn btn-danger btn-sm" onclick="apiCall('bot/arbitrage/stop','POST')">Stop</button>
     </div>
 
-    <div class="bot-row">
+    <div class="bot-row" id="liqBotRow">
       <span class="dot dot-off" id="dotLiq"></span>
-      <div style="flex:1"><div class="bot-name">Liquidation Bot</div><div class="bot-desc">Monitors Aave V3 borrower positions for liquidatable health factors. Executes flashloan-powered liquidations.</div></div>
-      <button class="btn btn-success btn-sm" onclick="apiCall('bot/liquidation/start','POST')">Start</button>
+      <div style="flex:1">
+        <div class="bot-name">Liquidation Bot <span id="liqBotBadge"></span></div>
+        <div class="bot-desc">Monitors Aave V3 borrower positions for liquidatable health factors. Executes flashloan-powered liquidations.</div>
+        <div id="liqBotWarning" style="display:none;font-size:10px;color:var(--yellow);margin-top:4px"></div>
+      </div>
+      <button class="btn btn-success btn-sm" id="btnStartLiq" onclick="apiCall('bot/liquidation/start','POST')">Start</button>
       <button class="btn btn-danger btn-sm" onclick="apiCall('bot/liquidation/stop','POST')">Stop</button>
     </div>
 
-    <div class="bot-row">
+    <div class="bot-row" id="stableBotRow">
       <span class="dot dot-off" id="dotStable"></span>
-      <div style="flex:1"><div class="bot-name">Stablecoin Bot</div><div class="bot-desc">Scans 6+ stablecoins for depeg opportunities. Calculates round-trip profit including all swap fees.</div></div>
-      <button class="btn btn-success btn-sm" onclick="apiCall('bot/stablecoin/start','POST')">Start</button>
+      <div style="flex:1">
+        <div class="bot-name">Stablecoin Bot <span id="stableBotBadge"></span></div>
+        <div class="bot-desc">Scans 6+ stablecoins for depeg opportunities. Calculates round-trip profit including all swap fees.</div>
+        <div id="stableBotWarning" style="display:none;font-size:10px;color:var(--yellow);margin-top:4px"></div>
+      </div>
+      <button class="btn btn-success btn-sm" id="btnStartStable" onclick="apiCall('bot/stablecoin/start','POST')">Start</button>
       <button class="btn btn-danger btn-sm" onclick="apiCall('bot/stablecoin/stop','POST')">Stop</button>
     </div>
   </div>
@@ -2817,6 +2825,7 @@ async function onSetupChainChange(){
 
 function renderContractsTable(){
   const addrs=state.config?.contractAddresses||{};
+  const liqAddrs=state.config?.liquidationContractAddresses||{};
   const chains=state.config?.chains||["arbitrumSepolia"];
   const names={
     arbitrum:"Arbitrum One",arbitrumSepolia:"Arbitrum Sepolia",
@@ -2825,17 +2834,30 @@ function renderContractsTable(){
   };
   const tbody=$('contractsBody');
   if(!tbody)return;
-  const allChains=[...new Set([...chains,...Object.keys(addrs)])];
-  tbody.innerHTML=allChains.map(ch=>{
-    const addr=addrs[ch]||'';
-    const isActive=chains.includes(ch);
-    const statusHtml=addr
-      ?'<span style="color:var(--green)">Deployed</span>'
-      :(isActive?'<span style="color:var(--yellow)">Not deployed</span>':'<span style="color:var(--text3)">\u2014</span>');
-    const addrHtml=addr
+  const allChains=[...new Set([...chains,...Object.keys(addrs),...Object.keys(liqAddrs)])];
+  function addrCell(addr){
+    return addr
       ?'<code style="font-size:11px;color:var(--accent)">'+addr.slice(0,6)+'...'+addr.slice(-4)+'</code> <button class="btn btn-sm" style="font-size:10px;padding:2px 6px;margin-left:4px" onclick="navigator.clipboard.writeText(\''+addr+'\');this.textContent=\'Copied!\';setTimeout(()=>this.textContent=\'Copy\',1500)">Copy</button>'
       :'<span style="color:var(--text3)">\u2014</span>';
-    return '<tr><td><strong>'+(names[ch]||ch)+'</strong></td><td>'+addrHtml+'</td><td>'+statusHtml+'</td></tr>';
+  }
+  function statusCell(addr,isActive){
+    return addr
+      ?'<span style="color:var(--green)">Deployed</span>'
+      :(isActive?'<span style="color:var(--yellow)">Not deployed</span>':'<span style="color:var(--text3)">\u2014</span>');
+  }
+  tbody.innerHTML=allChains.map(ch=>{
+    const addr=addrs[ch]||'';
+    const liqAddr=liqAddrs[ch]||'';
+    const isActive=chains.includes(ch);
+    const caps=state.chainCapabilities?.[ch]||{};
+    let rows='<tr><td rowspan="2"><strong>'+(names[ch]||ch)+'</strong></td>'
+      +'<td style="font-size:10px;color:var(--text2)">Arbitrage</td><td>'+addrCell(addr)+'</td><td>'+statusCell(addr,isActive)+'</td></tr>';
+    if(caps.liquidation!==false){
+      rows+='<tr><td style="font-size:10px;color:var(--text2)">Liquidation</td><td>'+addrCell(liqAddr)+'</td><td>'+statusCell(liqAddr,isActive)+'</td></tr>';
+    } else {
+      rows+='<tr><td style="font-size:10px;color:var(--text3)">Liquidation</td><td colspan="2"><span style="color:var(--text3);font-size:10px">Not supported on this chain</span></td></tr>';
+    }
+    return rows;
   }).join('');
   const currentChain=state.config?.chain||"arbitrumSepolia";
   $('inContract').value=addrs[currentChain]||'';
@@ -2894,6 +2916,12 @@ async function apiCall(endpoint,method='GET',body=null){
 // ===== STATE =====
 async function loadState(){
   state=await apiCall('state');
+  // Load chain capabilities matrix for UI gating
+  try {
+    const capsRes = await fetch('/api/chain-capabilities');
+    const capsData = await capsRes.json();
+    if(capsData.success) state.chainCapabilities = capsData.capabilities;
+  } catch(_){}
   updateUI();
 }
 
@@ -2952,6 +2980,59 @@ function updateUI(){
 
   // Stats
   updateStats(state.stats);
+
+  // Bot capability badges based on current chain
+  updateBotCapabilityBadges();
+}
+
+function updateBotCapabilityBadges(){
+  const chain = state?.config?.chain || 'arbitrumSepolia';
+  const caps = state?.chainCapabilities?.[chain] || {};
+  const liqAddr = state?.config?.liquidationContractAddresses?.[chain] || '';
+
+  // Liquidation bot
+  const liqBadge = $('liqBotBadge');
+  const liqWarn = $('liqBotWarning');
+  const btnLiq = $('btnStartLiq');
+  if (liqBadge && liqWarn && btnLiq) {
+    if (!caps.liquidation) {
+      liqBadge.innerHTML = '<span class="badge badge-red" style="font-size:9px">Unsupported</span>';
+      liqWarn.style.display = 'block';
+      liqWarn.textContent = 'Chain "' + chain + '" does not support liquidation. Switch to arbitrum or base.';
+      btnLiq.disabled = true;
+      btnLiq.style.opacity = '0.4';
+    } else if (!liqAddr && !state?.config?.paperTrading) {
+      liqBadge.innerHTML = '<span class="badge badge-yellow" style="font-size:9px">Executor missing</span>';
+      liqWarn.style.display = 'block';
+      liqWarn.textContent = 'LiquidationExecutor not deployed on ' + chain + '. Deploy first or enable paper trading.';
+      btnLiq.disabled = true;
+      btnLiq.style.opacity = '0.4';
+    } else {
+      liqBadge.innerHTML = liqAddr ? '<span class="badge badge-green" style="font-size:9px">Ready</span>' : '';
+      liqWarn.style.display = 'none';
+      btnLiq.disabled = false;
+      btnLiq.style.opacity = '1';
+    }
+  }
+
+  // Stablecoin bot
+  const stableBadge = $('stableBotBadge');
+  const stableWarn = $('stableBotWarning');
+  const btnStable = $('btnStartStable');
+  if (stableBadge && stableWarn && btnStable) {
+    if (!caps.stablecoin) {
+      stableBadge.innerHTML = '<span class="badge badge-red" style="font-size:9px">Unsupported</span>';
+      stableWarn.style.display = 'block';
+      stableWarn.textContent = 'Chain "' + chain + '" does not support stablecoin scanning. Switch to arbitrum or base.';
+      btnStable.disabled = true;
+      btnStable.style.opacity = '0.4';
+    } else {
+      stableBadge.innerHTML = '';
+      stableWarn.style.display = 'none';
+      btnStable.disabled = false;
+      btnStable.style.opacity = '1';
+    }
+  }
 }
 
 function updatePaperLabel(){
@@ -3189,12 +3270,20 @@ async function doDeploy(){
     btn.disabled=false;
     if(result.code===0&&result.contractAddress){
       btn.textContent='✅ Deployed!';
-      status.textContent='Contract deployed on '+(result.chain||chain)+': '+result.contractAddress;
+      let deployMsg='Arbitrage contract on '+(result.chain||chain)+': '+result.contractAddress;
       status.style.color='var(--green)';
       // Update per-chain contract addresses in local state
       if(!state.config.contractAddresses) state.config.contractAddresses={};
       state.config.contractAddresses[result.chain||chain]=result.contractAddress;
       state.config.contractAddress=result.contractAddress;
+      // Also capture liquidation executor address if deployed
+      if(result.liquidationContractAddress){
+        if(!state.config.liquidationContractAddresses) state.config.liquidationContractAddresses={};
+        state.config.liquidationContractAddresses[result.chain||chain]=result.liquidationContractAddress;
+        state.config.liquidationContractAddress=result.liquidationContractAddress;
+        deployMsg+='\nLiquidation Executor: '+result.liquidationContractAddress;
+      }
+      status.textContent=deployMsg;
       renderContractsTable();
     } else if(result.code===0){
       btn.textContent='✅ Done';
@@ -3286,8 +3375,13 @@ socket.on('deployResult',d=>{
     if(!state.config.contractAddresses)state.config.contractAddresses={};
     state.config.contractAddresses[d.chain||state.config.chain]=d.contractAddress;
     state.config.contractAddress=d.contractAddress;
-    renderContractsTable();
   }
+  if(d&&d.liquidationContractAddress){
+    if(!state.config.liquidationContractAddresses)state.config.liquidationContractAddresses={};
+    state.config.liquidationContractAddresses[d.chain||state.config.chain]=d.liquidationContractAddress;
+    state.config.liquidationContractAddress=d.liquidationContractAddress;
+  }
+  if(d&&(d.contractAddress||d.liquidationContractAddress)) renderContractsTable();
 });
 
 // ===== AI STATUS =====

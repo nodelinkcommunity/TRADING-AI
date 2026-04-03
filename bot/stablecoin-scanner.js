@@ -52,10 +52,17 @@ const DEX_CONFIGS = {
   },
 };
 
+// Use shared capability matrix for chain validation
+const { supportsStrategy, getSupportedChains } = require("../config/chain-capabilities");
+
 // ============ Core Scanner ============
 
 class StablecoinScanner {
   constructor(chain = "arbitrum") {
+    if (!supportsStrategy(chain, "stablecoin")) {
+      const supported = getSupportedChains("stablecoin").join(", ");
+      throw new Error(`Stablecoin scanner does not support chain "${chain}". Supported chains: ${supported}. Chain must have stablecoin registries configured.`);
+    }
     this.chain = chain;
     this.stables = STABLECOINS[chain];
     this.dexConfig = DEX_CONFIGS[chain];
