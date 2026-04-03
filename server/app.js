@@ -448,9 +448,9 @@ function getBotStatuses() {
 
 function parseLogForStats(line) {
   const lower = line.toLowerCase();
-  if (lower.includes("scan")) stats.scansCompleted++;
-  if (lower.includes("opportunit") || lower.includes("found")) stats.opportunitiesFound++;
-  if (lower.includes("success") || lower.includes("executed") || lower.includes("trade")) stats.tradesExecuted++;
+  if (lower.includes("[scan #")) stats.scansCompleted++;
+  if (/found \d+ opportunit/i.test(line)) stats.opportunitiesFound++;
+  if (lower.includes("[trade] executed") || lower.includes("transaction sent:")) stats.tradesExecuted++;
 
   // Parse paper (simulated) trades
   if (line.startsWith("[PAPER]")) {

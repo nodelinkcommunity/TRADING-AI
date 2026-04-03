@@ -19,6 +19,7 @@ const AAVE_PROVIDERS = {
   1: "0x2f39d218133AFaB8F2B819B1066c7E434Ad94E9e", // Ethereum
   43114: "0xa97684ead0e402dC232d5A977953DF7ECBaB3CDb", // Avalanche
   534352: "0x69850D0B276776781C063771b161bd8894BCdD04", // Scroll
+  5000: "0x10f7Bb5e3C4c77a57e2Ec4c348AeB661E65b8F8b", // Mantle (Lendle - Aave V3 fork)
 };
 
 // DEX Routers cho tung chain
@@ -76,7 +77,10 @@ async function main() {
   // Lay Aave provider
   const aaveProvider = AAVE_PROVIDERS[chainId];
   if (!aaveProvider) {
-    throw new Error(`Aave provider not configured for chainId ${chainId}`);
+    const unsupported = {
+      56: "BSC does not support Aave V3. Use PancakeSwap flash loans instead (requires different contract).",
+    };
+    throw new Error(unsupported[chainId] || `Aave V3 is not available on chainId ${chainId}. Cannot deploy flash loan contract.`);
   }
   console.log(`Aave Provider: ${aaveProvider}`);
 

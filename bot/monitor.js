@@ -8,33 +8,7 @@
 
 const { ethers } = require("ethers");
 require("dotenv").config();
-const config = require("../config/config.json");
 const { AIEngine } = require("./ai");
-
-// Override config with .env values (Dashboard saves to .env)
-if (process.env.PRIVATE_KEY) config.privateKey = process.env.PRIVATE_KEY;
-
-// Load RPC URL from correct env var based on chain
-const rpcEnvMap = {
-  arbitrum: "ARBITRUM_RPC_URL",
-  arbitrumSepolia: "ARBITRUM_RPC_URL",
-  base: "BASE_RPC_URL",
-  baseSepolia: "BASE_RPC_URL",
-  polygon: "POLYGON_RPC_URL",
-  bsc: "BSC_RPC_URL",
-  avalanche: "AVAX_RPC_URL",
-  mantle: "MANTLE_RPC_URL",
-  scroll: "SCROLL_RPC_URL",
-};
-const chain = config.chain || "arbitrumSepolia";
-const rpcEnvKey = rpcEnvMap[chain] || "ARBITRUM_RPC_URL";
-if (process.env[rpcEnvKey]) config.rpcUrl = process.env[rpcEnvKey];
-// Fallback to ARBITRUM_RPC_URL if specific var not set
-else if (process.env.ARBITRUM_RPC_URL) config.rpcUrl = process.env.ARBITRUM_RPC_URL;
-
-// Override chain from server env
-if (process.env.BOT_CHAIN) config.chain = process.env.BOT_CHAIN;
-if (process.env.FLASH_AMOUNT_USD) config.flashAmountUsd = parseInt(process.env.FLASH_AMOUNT_USD);
 
 // ============ ABI Definitions ============
 
@@ -503,10 +477,28 @@ class FlashloanBot {
     console.log("   Arbitrage Monitoring System");
     console.log("====================================\n");
 
-    // Override config with .env values (Dashboard saves credentials to .env)
+    // Override config with environment variables
     if (process.env.PRIVATE_KEY) this.config.privateKey = process.env.PRIVATE_KEY;
-    if (process.env.ARBITRUM_RPC_URL) this.config.rpcUrl = process.env.ARBITRUM_RPC_URL;
     if (process.env.CONTRACT_ADDRESS) this.config.contractAddress = process.env.CONTRACT_ADDRESS;
+    if (process.env.BOT_CHAIN) this.config.chain = process.env.BOT_CHAIN;
+    if (process.env.FLASH_AMOUNT_USD) this.config.flashAmountUsd = parseInt(process.env.FLASH_AMOUNT_USD);
+
+    // Load RPC URL for the correct chain
+    const rpcEnvMap = {
+      arbitrum: "ARBITRUM_RPC_URL",
+      arbitrumSepolia: "ARBITRUM_RPC_URL",
+      base: "BASE_RPC_URL",
+      baseSepolia: "BASE_RPC_URL",
+      polygon: "POLYGON_RPC_URL",
+      bsc: "BSC_RPC_URL",
+      avalanche: "AVAX_RPC_URL",
+      mantle: "MANTLE_RPC_URL",
+      scroll: "SCROLL_RPC_URL",
+    };
+    const chain = this.config.chain || "arbitrumSepolia";
+    const rpcEnvKey = rpcEnvMap[chain] || "ARBITRUM_RPC_URL";
+    if (process.env[rpcEnvKey]) this.config.rpcUrl = process.env[rpcEnvKey];
+    else if (process.env.ARBITRUM_RPC_URL) this.config.rpcUrl = process.env.ARBITRUM_RPC_URL;
 
     // Validate required config
     if (!this.config.privateKey || this.config.privateKey.includes("YOUR_")) {
@@ -524,6 +516,57 @@ class FlashloanBot {
     if (isTestnet) {
       console.log("⚠️  TESTNET MODE — Using testnet DEX addresses");
       this._loadTestnetConfig(chainId);
+    }
+
+    // Load chain-specific DEX and token configs if not testnet
+    if (!isTestnet) {
+      try {
+        const dexModule = require("../config/dex.js");
+        const tokenModule = require("../config/tokens.js");
+        const chainsModule = require("../config/chains.js");
+
+        const chainInfo = Object.values(chainsModule.CHAINS || chainsModule).find(c => c.chainId === chainId);
+
+        // Load DEX configs for this chain
+        if (dexModule.DEX && dexModule.DEX[chainId]) {
+          const chainDexes = dexModule.DEX[chainId];
+          this.config.dexConfigs = {};
+          for (const [name, dex] of Object.entries(chainDexes)) {
+            this.config.dexConfigs[name] = {
+              type: dex.type || (dex.quoter ? "v3" : "v2"),
+              router: dex.router,
+              quoter: dex.quoter,
+              fees: dex.fees || (dex.quoter ? [500, 3000, 10000] : [3000]),
+            };
+          }
+          console.log(`DEXes: ${Object.keys(this.config.dexConfigs).join(", ")}`);
+        }
+
+        // Load token pairs for this chain
+        if (tokenModule.TOKENS && tokenModule.TOKENS[chainId]) {
+          const chainTokens = tokenModule.TOKENS[chainId];
+          const tokenList = Object.entries(chainTokens);
+          if (tokenList.length >= 2) {
+            this.config.tokenPairs = [];
+            // Create pairs from first token (usually WETH/WBNB) with stablecoins
+            const [baseSymbol, baseToken] = tokenList[0];
+            for (let i = 1; i < Math.min(tokenList.length, 4); i++) {
+              const [quoteSymbol, quoteToken] = tokenList[i];
+              this.config.tokenPairs.push({
+                name: `${baseSymbol}/${quoteSymbol}`,
+                tokenA: baseToken.address,
+                tokenB: quoteToken.address,
+                decimals: baseToken.decimals || 18,
+                amounts: [0.01, 0.05, 0.1],
+              });
+            }
+            console.log(`Pairs: ${this.config.tokenPairs.map(p => p.name).join(", ")}`);
+          }
+        }
+      } catch (e) {
+        console.warn(`[WARN] Could not load chain-specific configs: ${e.message}`);
+        console.warn("[WARN] Using default config.json DEX/token settings");
+      }
     }
 
     // Setup wallet
