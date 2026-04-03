@@ -711,24 +711,33 @@ class FlashloanBot {
         }
       }
 
-      // Paper Trading: simulate without executing on-chain
-      if (best.profitBps >= this.config.minProfitBps) {
-        await this.simulatePaperTrade(best, aiAnalysis);
-      }
-
-      // Thuc hien neu vuot nguong (with AI gate when available)
+      // Determine execution mode
+      const isPaperMode = process.env.PAPER_TRADING === "true" || !this.config.autoExecute;
       const aiApproved = !aiAnalysis || aiAnalysis.shouldExecute;
-      if (this.executor && this.config.autoExecute && best.profitBps >= this.config.minProfitBps && aiApproved) {
-        const result = await this.executor.execute(best);
-        if (result && result.success) {
-          this.stats.tradesExecuted++;
+
+      if (best.profitBps >= this.config.minProfitBps) {
+        if (isPaperMode) {
+          // Paper Trading: simulate without executing on-chain
+          await this.simulatePaperTrade(best, aiAnalysis);
+        } else if (this.executor && aiApproved) {
+          // LIVE Trading: execute real transaction
+          const result = await this.executor.execute(best);
+          if (result) {
+            // Output structured log for server to parse as real trade
+            const pair = this.config.tokenPairs?.[0]?.name?.split(' ')[0] || 'WETH/USDC';
+            const chain = this.config.chain || 'arbitrumSepolia';
+            if (result.success) {
+              this.stats.tradesExecuted++;
+              console.log(`[TRADE] EXECUTED | success:true | txHash:${result.txHash} | pair:${pair} | chain:${chain} | strategy:${best.type} | profitBps:${best.profitBps} | gasUsed:${result.gasUsed} | block:${result.blockNumber}`);
+            } else {
+              console.log(`[TRADE] FAILED | success:false | pair:${pair} | chain:${chain} | strategy:${best.type} | error:${result.error || 'reverted'}`);
+            }
+            // Record result for AI learning
+            if (this.ai) this.ai.recordResult(best, result);
+          }
+        } else if (this.executor && !aiApproved) {
+          console.log("[AI] Execution blocked by AI analysis (score too low or risk too high)");
         }
-        // Record result for AI learning
-        if (this.ai && result) {
-          this.ai.recordResult(best, result);
-        }
-      } else if (this.executor && this.config.autoExecute && !aiApproved) {
-        console.log("[AI] Execution blocked by AI analysis (score too low or risk too high)");
       }
     } else {
       // In trang thai moi 5 lan scan
@@ -747,39 +756,58 @@ class FlashloanBot {
     try {
       const feeData = await this.provider.getFeeData();
       const gasPrice = feeData.gasPrice || 0n;
-      const estimatedGas = 350000n; // typical flashloan arb gas
+      const estimatedGas = 350000n;
       const gasCostWei = gasPrice * estimatedGas;
       const gasCostEth = parseFloat(ethers.formatEther(gasCostWei));
 
-      // Get ETH price estimate (use default, will be refined with oracle data)
-      const ethPriceUsd = 3500;
-      const gasCostUsd = gasCostEth * ethPriceUsd;
+      // Native token price per chain (for gas cost calculation)
+      const nativeTokenPrices = {
+        arbitrum: 3500, arbitrumSepolia: 3500,
+        base: 3500, baseSepolia: 3500,
+        polygon: 0.45, bsc: 600,
+        avalanche: 35, mantle: 0.80, scroll: 3500,
+      };
+      const chain = this.config.chain || 'arbitrumSepolia';
+      const nativePrice = nativeTokenPrices[chain] || 3500;
+      const gasCostUsd = gasCostEth * nativePrice;
 
-      // For paper trading, use configured flash amount in USD
+      // Volume from configured flash amount
       const volumeUsd = this.config.flashAmountUsd || 50000;
-
-      // Scale profit based on flash amount
       const profitBps = opportunity.profitBps;
       const grossProfitUsd = (volumeUsd * profitBps) / 10000;
       const netProfitUsd = grossProfitUsd - gasCostUsd;
 
-      // Simulate buy/sell prices
-      const midPrice = ethPriceUsd;
-      const spread = (midPrice * profitBps) / 10000;
-      const buyPrice = midPrice - spread / 2;
-      const sellPrice = midPrice + spread / 2;
+      // Calculate real buy/sell prices from DEX quotes
+      const step0 = opportunity.steps[0];
+      const step1 = opportunity.steps[1];
+      const flashAmount = opportunity.flashAmount;
+      const decimals = this.config.tokenPairs?.[0]?.decimals || 18;
+      const flashAmountFloat = parseFloat(ethers.formatUnits(flashAmount, decimals));
 
-      // Get pair name
-      const pair = this.config.tokenPairs?.[0]?.name?.split(' ')[0] || 'WETH/USDC';
-      const chain = this.config.chain || 'arbitrumSepolia';
+      // Real price = amountOut / amountIn (from actual DEX quotes)
+      let buyPrice = 0;
+      let sellPrice = 0;
+      if (step0?.expectedOut && flashAmountFloat > 0) {
+        const outFloat0 = parseFloat(ethers.formatUnits(step0.expectedOut, 6)); // USDC = 6 decimals
+        buyPrice = outFloat0 / flashAmountFloat; // price of tokenA in tokenB
+      }
+      if (step1?.expectedOut && step0?.expectedOut) {
+        const inFloat1 = parseFloat(ethers.formatUnits(step0.expectedOut, 6));
+        const outFloat1 = parseFloat(ethers.formatUnits(step1.expectedOut, decimals));
+        if (inFloat1 > 0) sellPrice = inFloat1 / outFloat1; // reverse price
+      }
+      // Fallback if price calculation failed
+      if (buyPrice === 0) buyPrice = nativePrice;
+      if (sellPrice === 0) sellPrice = nativePrice * (1 + profitBps / 10000);
+
+      // Get pair name from actual config
+      const pairName = this.config.tokenPairs?.[0]?.name?.split(' ')[0] || 'WETH/USDC';
       const aiScore = aiAnalysis?.score || 0;
       const strategy = opportunity.type === 'TRIANGULAR' ? 'triangular' : 'dexArbitrage';
-
-      // Determine success: net profit > 0
       const success = netProfitUsd > 0;
 
       // Output structured log for server to parse
-      console.log(`[PAPER] ${success ? 'PROFIT' : 'LOSS'} | strategy:${strategy} | pair:${pair} | chain:${chain} | volume:${volumeUsd.toFixed(2)} | buyPrice:${buyPrice.toFixed(2)} | sellPrice:${sellPrice.toFixed(2)} | gasCost:${gasCostUsd.toFixed(4)} | profit:${netProfitUsd.toFixed(4)} | profitBps:${profitBps} | aiScore:${aiScore} | steps:${opportunity.steps.map(s => s.dex).join('>')} | dexBuy:${opportunity.steps[0]?.dex || ''} | dexSell:${opportunity.steps[1]?.dex || ''}`);
+      console.log(`[PAPER] ${success ? 'PROFIT' : 'LOSS'} | strategy:${strategy} | pair:${pairName} | chain:${chain} | volume:${volumeUsd.toFixed(2)} | buyPrice:${buyPrice.toFixed(2)} | sellPrice:${sellPrice.toFixed(2)} | gasCost:${gasCostUsd.toFixed(4)} | profit:${netProfitUsd.toFixed(4)} | profitBps:${profitBps} | aiScore:${aiScore} | steps:${opportunity.steps.map(s => s.dex).join('>')} | dexBuy:${step0?.dex || ''} | dexSell:${step1?.dex || ''}`);
 
       this.stats.paperTrades = (this.stats.paperTrades || 0) + 1;
       this.stats.paperProfit = (this.stats.paperProfit || 0) + netProfitUsd;

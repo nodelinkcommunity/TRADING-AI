@@ -475,10 +475,13 @@ function parseLogForStats(line) {
       aiScore: 0,
     };
 
-    // Parse structured fields
+    // Parse structured fields (use first colon only to handle values with colons)
     const fields = line.split("|").map(f => f.trim());
     for (const field of fields) {
-      const [key, val] = field.split(":").map(s => s.trim());
+      const colonIdx = field.indexOf(":");
+      if (colonIdx === -1) continue;
+      const key = field.slice(0, colonIdx).trim();
+      const val = field.slice(colonIdx + 1).trim();
       if (!key || !val) continue;
       switch(key) {
         case "strategy": trade.strategy = val; break;
@@ -506,13 +509,15 @@ function parseLogForStats(line) {
     return;
   }
 
-  // Parse trade execution logs from bot output
-  if (line.includes("[TRADE] EXECUTED") || (lower.includes("transaction sent:") && lower.includes("success"))) {
+  // Parse real trade logs: [TRADE] EXECUTED | success:true | txHash:0x... | ...
+  // and [TRADE] FAILED | success:false | ...
+  if (line.startsWith("[TRADE]")) {
     const trade = {
-      id: Date.now(),
+      id: Date.now() + Math.random(),
       timestamp: Date.now(),
+      paper: false,
       strategy: "dexArbitrage",
-      chain: config.chains?.[0] || "arbitrumSepolia",
+      chain: config.chain || "arbitrumSepolia",
       pair: "WETH/USDC",
       type: "SIMPLE",
       volumeUsd: config.flashAmountUsd || 50000,
@@ -521,29 +526,37 @@ function parseLogForStats(line) {
       gasCostUsd: 0,
       profitUsd: 0,
       profitBps: 0,
-      success: true,
+      success: line.includes("success:true"),
       txHash: "",
       gasUsed: 0,
       blockNumber: 0,
       aiScore: 0,
     };
 
-    // Parse strategy from log
-    if (lower.includes("triangular")) trade.strategy = "triangular";
-    else if (lower.includes("liquidat")) trade.strategy = "liquidation";
-    else if (lower.includes("stablecoin") || lower.includes("depeg")) trade.strategy = "stablecoin";
+    // Parse structured fields (same format as [PAPER])
+    const fields = line.split("|").map(f => f.trim());
+    for (const field of fields) {
+      const colonIdx = field.indexOf(":");
+      if (colonIdx === -1) continue;
+      const key = field.slice(0, colonIdx).trim();
+      const val = field.slice(colonIdx + 1).trim();
+      if (!key || !val) continue;
+      switch(key) {
+        case "txHash": trade.txHash = val; break;
+        case "pair": trade.pair = val; break;
+        case "chain": trade.chain = val; break;
+        case "strategy": trade.strategy = val; trade.type = val === "TRIANGULAR" ? "TRIANGULAR" : "SIMPLE"; break;
+        case "profitBps": trade.profitBps = parseInt(val) || 0; break;
+        case "gasUsed": trade.gasUsed = parseInt(val) || 0; break;
+        case "block": trade.blockNumber = parseInt(val) || 0; break;
+        case "error": trade.errorMessage = val; break;
+      }
+    }
 
-    // Parse tx hash
-    const txMatch = line.match(/0x[a-fA-F0-9]{64}/);
-    if (txMatch) trade.txHash = txMatch[0];
-
-    // Parse profit
-    const profitMatch = line.match(/profit[:\s]+\$?([\d.]+)/i);
-    if (profitMatch) trade.profitUsd = parseFloat(profitMatch[1]);
-
-    // Parse pair
-    const pairMatch = line.match(/([A-Z]{2,10}\/[A-Z]{2,10})/);
-    if (pairMatch) trade.pair = pairMatch[1];
+    // Estimate profit in USD from profitBps
+    if (trade.profitBps > 0 && trade.success) {
+      trade.profitUsd = (trade.volumeUsd * trade.profitBps) / 10000;
+    }
 
     tradeHistory.unshift(trade);
     if (tradeHistory.length > 10000) tradeHistory = tradeHistory.slice(0, 10000);
@@ -551,42 +564,7 @@ function parseLogForStats(line) {
     recalcStats();
     io.emit("tradeStats", tradeStats);
     io.emit("newTrade", trade);
-  }
-
-  // Parse failed trade
-  if (lower.includes("execution error:") || lower.includes("[trade] failed")) {
-    const trade = {
-      id: Date.now(),
-      timestamp: Date.now(),
-      strategy: "dexArbitrage",
-      chain: config.chains?.[0] || "arbitrumSepolia",
-      pair: "WETH/USDC",
-      type: "SIMPLE",
-      volumeUsd: 0,
-      buyPrice: 0,
-      sellPrice: 0,
-      gasCostUsd: 0,
-      profitUsd: 0,
-      profitBps: 0,
-      success: false,
-      txHash: "",
-      gasUsed: 0,
-      blockNumber: 0,
-      aiScore: 0,
-      errorMessage: line,
-    };
-    const txMatch = line.match(/0x[a-fA-F0-9]{64}/);
-    if (txMatch) trade.txHash = txMatch[0];
-    if (lower.includes("triangular")) trade.strategy = "triangular";
-    else if (lower.includes("liquidat")) trade.strategy = "liquidation";
-    else if (lower.includes("stablecoin") || lower.includes("depeg")) trade.strategy = "stablecoin";
-
-    tradeHistory.unshift(trade);
-    if (tradeHistory.length > 10000) tradeHistory = tradeHistory.slice(0, 10000);
-    saveTrades();
-    recalcStats();
-    io.emit("tradeStats", tradeStats);
-    io.emit("newTrade", trade);
+    return;
   }
 
   // Parse AI log lines: [AI] Score: 75/100 | EXECUTE | ...
