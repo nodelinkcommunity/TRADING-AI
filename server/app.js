@@ -53,6 +53,45 @@ function getEmailTransporter() {
 // In-memory store for email verification codes (userId -> { code, email, expiresAt })
 const emailVerCodes = {};
 
+// In-memory store for wallet auth nonces (address -> { nonce, expiresAt })
+const authNonces = {};
+
+// ============ BOOTSTRAP PROTECTION ============
+// Generate a one-time setup token on first launch when no users exist.
+// Operator must pass this token to register — prevents unauthorized bootstrap takeover.
+// Token is printed to server console (stdout) only. After first user registers, it's cleared.
+let setupToken = null;
+const SETUP_TOKEN_PATH = path.join(DATA_DIR, "setup-token");
+function generateSetupToken() {
+  const auth = loadAuth();
+  if (auth.setupComplete || auth.users.length > 0) {
+    // Already set up — no token needed
+    if (fs.existsSync(SETUP_TOKEN_PATH)) fs.unlinkSync(SETUP_TOKEN_PATH);
+    return;
+  }
+  setupToken = crypto.randomBytes(32).toString("hex");
+  fs.writeFileSync(SETUP_TOKEN_PATH, setupToken, { mode: 0o600 });
+  console.log("\n  ╔══════════════════════════════════════════════════════╗");
+  console.log("  ║  SETUP TOKEN (required for first-time registration) ║");
+  console.log("  ╠══════════════════════════════════════════════════════╣");
+  console.log(`  ║  ${setupToken}  ║`);
+  console.log("  ╚══════════════════════════════════════════════════════╝");
+  console.log("  Copy this token to the registration page.\n");
+}
+function validateSetupToken(token) {
+  if (!setupToken) {
+    // Try reading from file (in case server restarted)
+    if (fs.existsSync(SETUP_TOKEN_PATH)) {
+      setupToken = fs.readFileSync(SETUP_TOKEN_PATH, "utf8").trim();
+    }
+  }
+  return setupToken && token === setupToken;
+}
+function clearSetupToken() {
+  setupToken = null;
+  if (fs.existsSync(SETUP_TOKEN_PATH)) fs.unlinkSync(SETUP_TOKEN_PATH);
+}
+
 // ============ AUTH SYSTEM ============
 
 function loadAuth() {
@@ -110,11 +149,31 @@ app.get("/api/auth/status", (req, res) => {
   });
 });
 
-// POST register first user (only works if no users exist)
+// GET check if a wallet address is registered
+app.get("/api/auth/check-wallet/:address", (req, res) => {
+  const auth = loadAuth();
+  const address = req.params.address.toLowerCase();
+  const user = auth.users.find(u => u.walletAddress?.toLowerCase() === address);
+  res.json({
+    registered: !!user,
+    totpEnabled: user ? user.totpEnabled : false,
+    setupComplete: auth.setupComplete,
+    hasUsers: auth.users.length > 0,
+    setupTokenRequired: !auth.setupComplete && auth.users.length === 0,
+  });
+});
+
+// POST register first user (only works if no users exist, requires setup token)
 app.post("/api/auth/register", async (req, res) => {
   const auth = loadAuth();
   if (auth.setupComplete) {
     return res.status(403).json({ error: "Registration closed. User already exists." });
+  }
+
+  // Bootstrap protection: require setup token from server console
+  const { setupToken: clientSetupToken } = req.body;
+  if (!validateSetupToken(clientSetupToken)) {
+    return res.status(403).json({ error: "Invalid setup token. Check server console for the token." });
   }
 
   const { email, password, walletAddress, walletSignature, walletMessage } = req.body;
@@ -154,9 +213,18 @@ app.post("/api/auth/register", async (req, res) => {
   auth.users.push(user);
   auth.setupComplete = true;
   saveAuth(auth);
+  clearSetupToken(); // Registration complete — destroy setup token
 
   const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
   res.json({ success: true, token, message: "Account created with wallet bound" });
+});
+
+// GET nonce for wallet authentication (server-side challenge)
+app.get("/api/auth/nonce/:address", (req, res) => {
+  const address = req.params.address.toLowerCase();
+  const nonce = crypto.randomBytes(16).toString("hex");
+  authNonces[address] = { nonce, expiresAt: Date.now() + 300000 }; // 5 min
+  res.json({ success: true, nonce });
 });
 
 // POST login with Web3 wallet signature + optional TOTP (2FA)
@@ -190,12 +258,32 @@ app.post("/api/auth/wallet-login", (req, res) => {
     return res.status(401).json({ error: "Signature does not match address" });
   }
 
+  // Verify server-issued nonce
+  const nonceMatch = message.match(/Nonce:\s*([a-f0-9]+)/i);
+  if (!nonceMatch) {
+    return res.status(400).json({ error: "Message must contain server-issued nonce" });
+  }
+  const storedNonce = authNonces[recoveredAddress.toLowerCase()];
+  if (!storedNonce || storedNonce.nonce !== nonceMatch[1]) {
+    return res.status(401).json({ error: "Invalid or expired nonce. Request a new one." });
+  }
+  if (Date.now() > storedNonce.expiresAt) {
+    delete authNonces[recoveredAddress.toLowerCase()];
+    return res.status(401).json({ error: "Nonce expired. Request a new one." });
+  }
+  // Consume nonce (one-time use)
+  delete authNonces[recoveredAddress.toLowerCase()];
+
   // Find user by wallet address
   let user = auth.users.find(u => u.walletAddress?.toLowerCase() === address.toLowerCase());
 
   if (!user) {
     if (auth.setupComplete && auth.users.length > 0) {
       return res.status(403).json({ error: "Wallet not registered" });
+    }
+    // Bootstrap protection: require setup token for first wallet registration
+    if (!validateSetupToken(req.body.setupToken)) {
+      return res.status(403).json({ error: "Setup token required for first-time registration. Check server console.", setupTokenRequired: true });
     }
     // First user via wallet — auto-register (setup not yet complete)
     user = {
@@ -208,6 +296,7 @@ app.post("/api/auth/wallet-login", (req, res) => {
     auth.users.push(user);
     auth.setupComplete = true;
     saveAuth(auth);
+    clearSetupToken(); // Registration complete — destroy setup token
   }
 
   // Check TOTP (2FA) if enabled — Layer 2 authentication (before issuing token)
@@ -321,6 +410,22 @@ app.post("/api/auth/link-wallet", requireAuth, (req, res) => {
   if (recoveredAddress.toLowerCase() !== address.toLowerCase()) {
     return res.status(401).json({ error: "Signature mismatch" });
   }
+
+  // Verify server-issued nonce
+  const nonceMatch = message.match(/Nonce:\s*([a-f0-9]+)/i);
+  if (!nonceMatch) {
+    return res.status(400).json({ error: "Message must contain server-issued nonce" });
+  }
+  const storedNonce = authNonces[recoveredAddress.toLowerCase()];
+  if (!storedNonce || storedNonce.nonce !== nonceMatch[1]) {
+    return res.status(401).json({ error: "Invalid or expired nonce. Request a new one." });
+  }
+  if (Date.now() > storedNonce.expiresAt) {
+    delete authNonces[recoveredAddress.toLowerCase()];
+    return res.status(401).json({ error: "Nonce expired. Request a new one." });
+  }
+  // Consume nonce (one-time use)
+  delete authNonces[recoveredAddress.toLowerCase()];
 
   user.walletAddress = address.toLowerCase();
   saveAuth(auth);
@@ -445,6 +550,62 @@ app.post("/api/auth/change-password", requireAuth, async (req, res) => {
 });
 
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+
+// ============ INTERNAL NOTES ============
+
+const NOTES_PATH = path.join(DATA_DIR, "notes.json");
+
+function loadNotes() {
+  try {
+    if (fs.existsSync(NOTES_PATH)) return JSON.parse(fs.readFileSync(NOTES_PATH, "utf8"));
+  } catch (_) {}
+  return { keys: {}, checklist: {}, text: "" };
+}
+
+function saveNotes(notes) {
+  fs.writeFileSync(NOTES_PATH, JSON.stringify(notes, null, 2));
+}
+
+// GET all notes
+app.get("/api/notes", requireAuth, (req, res) => {
+  const notes = loadNotes();
+  // Mask API keys for security (show only last 4 chars)
+  const maskedKeys = {};
+  for (const [k, v] of Object.entries(notes.keys || {})) {
+    maskedKeys[k] = v && v.length > 4 ? "●".repeat(v.length - 4) + v.slice(-4) : v;
+  }
+  res.json({ success: true, keys: maskedKeys, checklist: notes.checklist, text: notes.text });
+});
+
+// POST save API keys
+app.post("/api/notes/keys", requireAuth, (req, res) => {
+  const notes = loadNotes();
+  const newKeys = req.body || {};
+  // Only update keys that are provided and not masked
+  for (const [k, v] of Object.entries(newKeys)) {
+    if (v && !v.startsWith("●")) {
+      notes.keys[k] = v;
+    }
+  }
+  saveNotes(notes);
+  res.json({ success: true, message: "API keys saved" });
+});
+
+// POST save checklist state
+app.post("/api/notes/checklist", requireAuth, (req, res) => {
+  const notes = loadNotes();
+  notes.checklist = req.body.checklist || {};
+  saveNotes(notes);
+  res.json({ success: true, message: "Checklist saved" });
+});
+
+// POST save free-text notes
+app.post("/api/notes/text", requireAuth, (req, res) => {
+  const notes = loadNotes();
+  notes.text = req.body.text || "";
+  saveNotes(notes);
+  res.json({ success: true, message: "Notes saved" });
+});
 
 // ============ TRADE HISTORY ============
 
@@ -821,7 +982,11 @@ function startBot(botName) {
       ...((() => {
         const botChain = config.chain || "arbitrumSepolia";
         const addr = config.contractAddresses?.[botChain] || config.contractAddress || "";
-        return addr ? { CONTRACT_ADDRESS: addr, FLASHLOAN_CONTRACT_ADDRESS: addr } : {};
+        const liqAddr = config.liquidationContractAddresses?.[botChain] || config.liquidationContractAddress || "";
+        return {
+          ...(addr ? { CONTRACT_ADDRESS: addr } : {}),
+          ...(liqAddr ? { FLASHLOAN_CONTRACT_ADDRESS: liqAddr } : {}),
+        };
       })()),
       BOT_CHAIN: config.chain || "arbitrumSepolia",
       FLASH_AMOUNT_USD: String(config.flashAmountUsd || 50000),
@@ -1307,18 +1472,37 @@ app.post("/api/deploy", requireAuth, (req, res) => {
     addLog("warn", "deploy", d.toString().trim());
   });
   proc.on("close", (code) => {
-    const addrMatch = output.match(/(?:deployed|Contract).*?(0x[a-fA-F0-9]{40})/i);
+    const deployChain = config.chain || "arbitrumSepolia";
+
+    // Parse main arbitrage contract address (e.g. "Contract: 0x..." or "deployed...0x...")
+    const addrMatch = output.match(/^Contract:\s*(0x[a-fA-F0-9]{40})/m)
+      || output.match(/(?:deployed|Contract).*?(0x[a-fA-F0-9]{40})/i);
     if (addrMatch) {
-      const deployChain = config.chain || "arbitrumSepolia";
       if (!config.contractAddresses) config.contractAddresses = {};
       config.contractAddresses[deployChain] = addrMatch[1];
       config.contractAddress = addrMatch[1]; // backward compat
-      saveConfig();
-      addLog("info", "deploy", `Contract deployed on ${deployChain}: ${addrMatch[1]}`);
+      addLog("info", "deploy", `Arbitrage contract deployed on ${deployChain}: ${addrMatch[1]}`);
     }
+
+    // Parse LiquidationExecutor address (e.g. "LiquidationExecutor deployed: 0x..." or "LiquidationExecutor: 0x...")
+    const liqMatch = output.match(/LiquidationExecutor[:\s]+(0x[a-fA-F0-9]{40})/i);
+    if (liqMatch) {
+      if (!config.liquidationContractAddresses) config.liquidationContractAddresses = {};
+      config.liquidationContractAddresses[deployChain] = liqMatch[1];
+      config.liquidationContractAddress = liqMatch[1]; // backward compat
+      addLog("info", "deploy", `LiquidationExecutor deployed on ${deployChain}: ${liqMatch[1]}`);
+    }
+
+    if (addrMatch || liqMatch) saveConfig();
+
     const msg = code === 0 ? "Deployment completed" : `Deployment failed (exit code: ${code})`;
     addLog(code === 0 ? "info" : "error", "deploy", msg);
-    io.emit("deployResult", { code, output, contractAddress: addrMatch?.[1], chain: config.chain || "arbitrumSepolia" });
+    io.emit("deployResult", {
+      code, output,
+      contractAddress: addrMatch?.[1],
+      liquidationContractAddress: liqMatch?.[1],
+      chain: deployChain,
+    });
   });
 
   res.json({ success: true, message: `Deployment to ${network} started. Check logs for progress.` });
@@ -1651,7 +1835,7 @@ app.post("/api/backtests/historical", requireAuth, (req, res) => {
 });
 
 // GET A/B test status
-app.get("/api/ab-test/status", (req, res) => {
+app.get("/api/ab-test/status", requireAuth, (req, res) => {
   try {
     const abTestPath = path.join(DATA_DIR, "ab-test.json");
     let abTest = null;
@@ -1665,14 +1849,15 @@ app.get("/api/ab-test/status", (req, res) => {
 });
 
 // POST start A/B test
-// Note: This intentionally creates a separate test harness (not wired to the live bot) by design.
+// Note: A/B test runs in a SEPARATE offline harness — it does NOT affect the live bot.
+// It replays historical opportunities with two parameter sets to compare theoretical performance.
 app.post("/api/ab-test/start", requireAuth, (req, res) => {
   try {
     const ABTester = require("../bot/backtesting/ab-tester");
     const tester = new ABTester();
     const result = tester.start(req.body);
-    addLog("info", "ab-test", `A/B test started: ${req.body.nameA || "A"} vs ${req.body.nameB || "B"}`);
-    res.json({ success: true, result, note: "A/B test started in separate harness. Results saved to ab-test.json." });
+    addLog("info", "ab-test", `A/B test started (offline simulation): ${req.body.nameA || "A"} vs ${req.body.nameB || "B"}`);
+    res.json({ success: true, result, note: "A/B test started in offline simulation harness. This does NOT affect the live bot. Results saved to ab-test.json." });
   } catch (error) {
     res.json({ success: false, error: error.message });
   }
@@ -1738,6 +1923,8 @@ app.post("/api/risk/reset-circuit-breaker", requireAuth, (req, res) => {
   try {
     addLog("info", "risk", "Circuit breaker manually reset");
     io.emit("riskCommand", { action: "resetCircuitBreaker" });
+    // Write reset signal file for running bot to detect
+    fs.writeFileSync(path.join(DATA_DIR, "circuit-breaker-reset.signal"), Date.now().toString());
     res.json({ success: true, message: "Circuit breaker reset" });
   } catch (error) {
     res.json({ success: false, error: error.message });
@@ -1840,9 +2027,10 @@ process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
 server.listen(PORT, "0.0.0.0", () => {
   console.log("");
   console.log("  ============================================");
-  console.log("   FLASHLOAN-AI | DeFi Arbitrage Command Center");
+  console.log("   QIRA Protocol | DeFi Arbitrage Command Center");
   console.log(`   Running on http://0.0.0.0:${PORT}`);
   console.log("  ============================================");
   console.log("");
+  generateSetupToken(); // Print setup token if system has no users yet
   addLog("system", "server", `Server started on port ${PORT}`);
 });

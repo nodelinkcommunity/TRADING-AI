@@ -126,6 +126,18 @@ class ReplayEngine {
       results.stdDevProfitBps = ss.standardDeviation(results.profitDistribution);
     }
 
+    // Count how many results are based on real vs simulated data
+    const realOutcomes = filtered.filter(o => o.executed && o.result).length;
+    const simulatedOutcomes = totalTrades - realOutcomes;
+    results.dataQuality = {
+      realOutcomes,
+      simulatedOutcomes,
+      simulatedPct: totalTrades > 0 ? Math.round((simulatedOutcomes / totalTrades) * 100) : 0,
+      disclaimer: simulatedOutcomes > 0
+        ? `${simulatedOutcomes}/${totalTrades} outcomes are simulated (heuristic 60% win rate). Results should NOT be treated as proof of strategy effectiveness. Only real executed trades provide reliable performance data.`
+        : "All outcomes are based on real executed trade data.",
+    };
+
     // Save result
     this._saveResult(results);
 

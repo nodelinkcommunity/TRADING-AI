@@ -39,6 +39,7 @@ contract LiquidationExecutor is FlashLoanSimpleReceiverBase, Ownable, Reentrancy
         uint256 debtToCover;
         bool useV3;          // true = Uniswap V3, false = V2
         uint24 swapFee;      // Fee tier cho V3 (500, 3000, 10000)
+        uint256 minProfitBps; // Minimum profit in basis points (e.g. 50 = 0.5% of flashloan amount)
     }
 
     // ============ Events ============
@@ -134,28 +135,33 @@ contract LiquidationExecutor is FlashLoanSimpleReceiverBase, Ownable, Reentrancy
         uint256 collateralBalance = IERC20(liqParams.collateralAsset).balanceOf(address(this));
         require(collateralBalance > 0, "No collateral received");
 
+        // Buoc 4: Calculate minimum acceptable swap output
+        // amountOwed = flashloan principal + Aave premium
+        // minProfit = amountOwed * minProfitBps / 10000
+        // This protects against MEV/sandwich attacks eating the liquidation bonus
+        uint256 amountOwed = amount + premium;
+        uint256 existingDebtBalance = IERC20(asset).balanceOf(address(this));
+        uint256 minProfit = amountOwed * liqParams.minProfitBps / 10000;
+        uint256 swapMinAmountOut = amountOwed > existingDebtBalance
+            ? (amountOwed - existingDebtBalance) + minProfit
+            : 0;
+
         uint256 debtReceived;
         if (liqParams.collateralAsset != asset) {
-            // minAmountOut is set to 0 because collateral and debt tokens can have
-            // different decimals and prices, making a percentage of collateralBalance
-            // meaningless as a debt token minimum. Profitability is enforced by the
-            // require(debtReceived >= amountOwed) check below, which guarantees we
-            // receive enough debt token to repay the flash loan plus premium.
             debtReceived = _swapCollateralForDebt(
                 liqParams.collateralAsset,
                 asset,
                 collateralBalance,
                 liqParams.useV3,
                 liqParams.swapFee,
-                0
+                swapMinAmountOut
             );
         } else {
             debtReceived = collateralBalance;
         }
 
-        // Buoc 4: Tra flashloan + premium
-        uint256 amountOwed = amount + premium;
-        require(debtReceived + IERC20(asset).balanceOf(address(this)) >= amountOwed,
+        // Buoc 5: Tra flashloan + premium
+        require(debtReceived + existingDebtBalance >= amountOwed,
             "Insufficient to repay flashloan");
 
         IERC20(asset).safeIncreaseAllowance(address(POOL), amountOwed);

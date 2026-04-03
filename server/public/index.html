@@ -238,6 +238,10 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(19
 .fl{display:block;font-size:11px;font-weight:600;color:var(--text2);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}
 .fh{font-size:10px;color:var(--text3);margin-top:4px}
 
+/* CHECKBOX LABELS */
+.chk-label{display:flex;align-items:center;gap:8px;cursor:pointer;padding:4px 0}
+.chk-label input[type="checkbox"]{flex-shrink:0;width:18px;height:18px;margin:0;accent-color:var(--accent);cursor:pointer}
+
 /* BUTTONS */
 .btn{padding:8px 18px;border-radius:8px;font-size:12px;font-weight:600;border:none;transition:.15s;display:inline-flex;align-items:center;gap:6px;letter-spacing:.2px}
 .btn:hover{filter:brightness(1.15);transform:translateY(-1px)}
@@ -437,7 +441,15 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(19
       <div id="walletConnected" style="display:none;margin-top:16px;text-align:center">
         <div style="font-size:11px;color:var(--text2)">Connected Wallet</div>
         <div id="walletAddr" style="font-size:13px;font-weight:600;color:var(--accent);margin:6px 0;word-break:break-all"></div>
-        <button class="btn btn-primary" onclick="signWalletLogin()">Sign In with Wallet</button>
+        <div id="walletActionBtns">
+          <button class="btn btn-primary" id="btnWalletSignIn" style="display:none" onclick="signWalletLogin()">Sign In with Wallet</button>
+          <div id="setupTokenSection" style="display:none;margin:10px 0">
+            <div style="font-size:11px;color:var(--yellow);margin-bottom:6px">&#128274; Enter the setup token from server console:</div>
+            <input type="text" id="setupTokenInput" class="fi" placeholder="Paste setup token here" style="font-size:12px;text-align:center;font-family:monospace">
+          </div>
+          <button class="btn btn-primary" id="btnWalletRegister" style="display:none;background:linear-gradient(135deg,#00c853,#00bfa5)" onclick="registerWallet()">Register New Wallet</button>
+        </div>
+        <div id="walletRegStatus" style="font-size:11px;margin-top:6px"></div>
       </div>
       <!-- TOTP verification (shown after wallet connect if 2FA enabled) -->
       <div id="loginTotpSection" style="display:none;margin-top:16px">
@@ -506,6 +518,7 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(19
   <button class="sb-btn" onclick="navigate('profile')"><span class="icon">&#128100;</span> Profile</button>
 
   <div class="sb-section">Infos</div>
+  <button class="sb-btn" onclick="navigate('internal-notes')"><span class="icon">&#128221;</span> Internal Notes</button>
   <button class="sb-btn" onclick="navigate('introduction')"><span class="icon">&#128218;</span> Introduction</button>
   <button class="sb-btn" onclick="navigate('guidelines')"><span class="icon">&#9782;</span> Guidelines</button>
   <button class="sb-btn" onclick="navigate('scenarios')"><span class="icon">&#9730;</span> Scenarios</button>
@@ -2057,6 +2070,147 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(19
   </div>
 </div>
 
+<!-- ========== INTERNAL NOTES ========== -->
+<div class="panel" id="p-internal-notes">
+  <div class="page-title">Internal Notes</div>
+  <div class="page-desc">Deployment checklist, API key management, and agreed milestones between operator and developer.</div>
+
+  <!-- API Keys Management -->
+  <div class="card" style="border-left:3px solid var(--accent)">
+    <div class="card-header"><div class="card-title">&#128273; API Keys & Service Credentials</div></div>
+    <div class="page-desc" style="margin-bottom:14px">Store API keys for services used across deployment phases. Keys are saved to server config (not exposed to frontend).</div>
+
+    <div class="g2">
+      <div class="fg">
+        <label class="fl">Alchemy API Key</label>
+        <input type="text" id="noteAlchemyKey" placeholder="Enter Alchemy API Key">
+        <div class="fh">Used for RPC endpoints across all chains</div>
+      </div>
+      <div class="fg">
+        <label class="fl">Infura API Key</label>
+        <input type="text" id="noteInfuraKey" placeholder="Enter Infura Project ID">
+        <div class="fh">Fallback RPC provider</div>
+      </div>
+    </div>
+    <div class="g2">
+      <div class="fg">
+        <label class="fl">Etherscan / Block Explorer API Key</label>
+        <input type="text" id="noteEtherscanKey" placeholder="For contract verification">
+        <div class="fh">Arbiscan, Basescan, Polygonscan, etc.</div>
+      </div>
+      <div class="fg">
+        <label class="fl">CoinGecko / CoinMarketCap API Key</label>
+        <input type="text" id="notePriceApiKey" placeholder="For price feeds (optional)">
+        <div class="fh">Real-time price data for AI analysis</div>
+      </div>
+    </div>
+    <div class="g2">
+      <div class="fg">
+        <label class="fl">The Graph API Key</label>
+        <input type="text" id="noteGraphKey" placeholder="For subgraph queries">
+        <div class="fh">Pool data, historical swaps, liquidity tracking</div>
+      </div>
+      <div class="fg">
+        <label class="fl">Telegram Bot Token</label>
+        <input type="text" id="noteTelegramKey" placeholder="123456:ABC-DEF...">
+        <div class="fh">For trade alerts and notifications</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="btn btn-primary btn-sm" onclick="saveInternalKeys()">Save API Keys</button>
+      <span id="noteKeysStatus" style="font-size:12px;line-height:32px"></span>
+    </div>
+  </div>
+
+  <!-- Deployment Phases Checklist -->
+  <div class="card" style="border-left:3px solid var(--green)">
+    <div class="card-header"><div class="card-title">&#128203; Deployment Phases — Agreed Checklist</div></div>
+
+    <!-- Phase 1 -->
+    <div style="margin-bottom:20px">
+      <div style="font-size:14px;font-weight:700;color:var(--accent);margin-bottom:10px;display:flex;align-items:center;gap:8px">
+        <span style="background:var(--accent);color:#fff;border-radius:50%;width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:800">1</span>
+        Phase 1 — Foundation & Testnet
+      </div>
+      <div style="font-size:12px;padding-left:32px;display:flex;flex-direction:column" id="phase1Checklist">
+        <label class="chk-label"><input type="checkbox" data-phase="1" data-item="0"> Setup project structure & smart contracts</label>
+        <label class="chk-label"><input type="checkbox" data-phase="1" data-item="1"> Deploy contracts to Arbitrum Sepolia (testnet)</label>
+        <label class="chk-label"><input type="checkbox" data-phase="1" data-item="2"> Configure RPC endpoints (Alchemy/Infura)</label>
+        <label class="chk-label"><input type="checkbox" data-phase="1" data-item="3"> Web3 wallet authentication working</label>
+        <label class="chk-label"><input type="checkbox" data-phase="1" data-item="4"> Paper trading mode — bot scanning & simulating trades</label>
+        <label class="chk-label"><input type="checkbox" data-phase="1" data-item="5"> Dashboard UI functional on desktop & mobile</label>
+        <label class="chk-label"><input type="checkbox" data-phase="1" data-item="6"> Security audit — all P0/P1 findings fixed</label>
+      </div>
+    </div>
+
+    <!-- Phase 2 -->
+    <div style="margin-bottom:20px">
+      <div style="font-size:14px;font-weight:700;color:var(--accent);margin-bottom:10px;display:flex;align-items:center;gap:8px">
+        <span style="background:var(--accent);color:#fff;border-radius:50%;width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:800">2</span>
+        Phase 2 — Mainnet Deployment & Live Testing
+      </div>
+      <div style="font-size:12px;padding-left:32px;display:flex;flex-direction:column" id="phase2Checklist">
+        <label class="chk-label"><input type="checkbox" data-phase="2" data-item="0"> Deploy contracts to Arbitrum One (mainnet)</label>
+        <label class="chk-label"><input type="checkbox" data-phase="2" data-item="1"> Fund bot wallet with gas (ETH) + initial capital</label>
+        <label class="chk-label"><input type="checkbox" data-phase="2" data-item="2"> Enable DEX Arbitrage strategy — small amounts first</label>
+        <label class="chk-label"><input type="checkbox" data-phase="2" data-item="3"> Monitor first 24h — verify trades, gas costs, profits</label>
+        <label class="chk-label"><input type="checkbox" data-phase="2" data-item="4"> Enable 2FA (TOTP) for operator account</label>
+        <label class="chk-label"><input type="checkbox" data-phase="2" data-item="5"> Configure Telegram/Discord alerts</label>
+        <label class="chk-label"><input type="checkbox" data-phase="2" data-item="6"> AI risk engine calibration — set risk level, circuit breaker thresholds</label>
+      </div>
+    </div>
+
+    <!-- Phase 3 -->
+    <div style="margin-bottom:20px">
+      <div style="font-size:14px;font-weight:700;color:var(--accent);margin-bottom:10px;display:flex;align-items:center;gap:8px">
+        <span style="background:var(--accent);color:#fff;border-radius:50%;width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:800">3</span>
+        Phase 3 — Multi-Chain & Advanced Strategies
+      </div>
+      <div style="font-size:12px;padding-left:32px;display:flex;flex-direction:column" id="phase3Checklist">
+        <label class="chk-label"><input type="checkbox" data-phase="3" data-item="0"> Deploy to Base, Polygon, BSC (multi-chain)</label>
+        <label class="chk-label"><input type="checkbox" data-phase="3" data-item="1"> Enable Triangular Arbitrage strategy</label>
+        <label class="chk-label"><input type="checkbox" data-phase="3" data-item="2"> Enable Liquidation strategy (with flashloan)</label>
+        <label class="chk-label"><input type="checkbox" data-phase="3" data-item="3"> Enable Stablecoin Scanner strategy</label>
+        <label class="chk-label"><input type="checkbox" data-phase="3" data-item="4"> Backtesting with real historical data (The Graph)</label>
+        <label class="chk-label"><input type="checkbox" data-phase="3" data-item="5"> A/B testing strategy parameters</label>
+        <label class="chk-label"><input type="checkbox" data-phase="3" data-item="6"> Performance review — ROI, win rate, gas efficiency</label>
+      </div>
+    </div>
+
+    <!-- Phase 4 -->
+    <div>
+      <div style="font-size:14px;font-weight:700;color:var(--accent);margin-bottom:10px;display:flex;align-items:center;gap:8px">
+        <span style="background:var(--accent);color:#fff;border-radius:50%;width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:800">4</span>
+        Phase 4 — Production Scale & Optimization
+      </div>
+      <div style="font-size:12px;padding-left:32px;display:flex;flex-direction:column" id="phase4Checklist">
+        <label class="chk-label"><input type="checkbox" data-phase="4" data-item="0"> VPS/cloud deployment (PM2, auto-restart)</label>
+        <label class="chk-label"><input type="checkbox" data-phase="4" data-item="1"> Autonomous AI mode — self-adjusting parameters</label>
+        <label class="chk-label"><input type="checkbox" data-phase="4" data-item="2"> Whale tracking & MEV protection active</label>
+        <label class="chk-label"><input type="checkbox" data-phase="4" data-item="3"> Full multi-chain 24/7 operation</label>
+        <label class="chk-label"><input type="checkbox" data-phase="4" data-item="4"> Profit auto-compound / withdrawal strategy</label>
+        <label class="chk-label"><input type="checkbox" data-phase="4" data-item="5"> Monthly review & strategy rebalancing</label>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:8px;margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+      <button class="btn btn-primary btn-sm" onclick="saveChecklist()">Save Checklist</button>
+      <span id="noteChecklistStatus" style="font-size:12px;line-height:32px"></span>
+    </div>
+  </div>
+
+  <!-- Free-form Notes -->
+  <div class="card">
+    <div class="card-header"><div class="card-title">&#128221; Notes & Agreements</div></div>
+    <div class="page-desc" style="margin-bottom:10px">Private notes between operator and developer. Record decisions, parameters, known issues, or any agreements.</div>
+    <textarea id="notesFreeText" style="width:100%;min-height:200px;resize:vertical;font-family:'SF Mono',Monaco,monospace;font-size:12px;line-height:1.8;padding:14px" placeholder="Write your notes here...&#10;&#10;Example:&#10;- Agreed min profit: 15 bps for testnet, 25 bps for mainnet&#10;- Gas limit: 500k per trade&#10;- Target chains: Arbitrum > Base > Polygon&#10;- Risk level: Conservative initially, upgrade after 7 days&#10;- Weekly review every Monday"></textarea>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="btn btn-primary btn-sm" onclick="saveNotes()">Save Notes</button>
+      <span id="notesSaveStatus" style="font-size:12px;line-height:32px"></span>
+    </div>
+  </div>
+</div>
+
 <!-- ========== QUIRA SUPPORT ========== -->
 <div class="panel" id="p-quira">
   <div class="page-title">QUIRA Support</div>
@@ -2248,8 +2402,45 @@ async function connectMetaMask() {
     $('walletAddr').textContent = address;
     $('walletConnected').style.display = 'block';
     $('walletConnected').dataset.address = address;
-    status.className = 'login-status success';
-    status.textContent = 'Wallet connected!';
+
+    // Check if wallet is already registered
+    const checkRes = await fetch('/api/auth/check-wallet/' + address);
+    const checkData = await checkRes.json();
+
+    const btnSignIn = $('btnWalletSignIn');
+    const btnRegister = $('btnWalletRegister');
+    const regStatus = $('walletRegStatus');
+
+    if (checkData.registered) {
+      // Wallet already registered — show Sign In
+      btnSignIn.style.display = 'inline-block';
+      btnRegister.style.display = 'none';
+      status.className = 'login-status success';
+      status.textContent = 'Wallet recognized! Click Sign In.';
+      regStatus.textContent = '';
+      // If TOTP enabled, show hint
+      if (checkData.totpEnabled) {
+        $('loginTotpSection').style.display = 'block';
+        regStatus.style.color = 'var(--text2)';
+        regStatus.textContent = '2FA is enabled — enter code below before signing in.';
+      }
+    } else if (!checkData.setupComplete || !checkData.hasUsers) {
+      // No users yet — show Register with setup token
+      btnSignIn.style.display = 'none';
+      btnRegister.style.display = 'inline-block';
+      $('setupTokenSection').style.display = 'block';
+      status.className = 'login-status';
+      status.textContent = 'New wallet detected.';
+      regStatus.style.color = 'var(--accent)';
+      regStatus.textContent = 'First-time setup — paste the setup token from server console, then click Register.';
+    } else {
+      // System has users but this wallet is not registered
+      btnSignIn.style.display = 'none';
+      btnRegister.style.display = 'none';
+      status.className = 'login-status error';
+      status.textContent = 'Wallet not registered. Use the wallet that was registered during setup.';
+      regStatus.textContent = '';
+    }
   } catch (err) {
     status.className = 'login-status error';
     status.textContent = err.message || 'Connection rejected';
@@ -2267,9 +2458,17 @@ async function signWalletLogin() {
   if (!address || !window.ethereum) return;
 
   const totpCode = $('loginTotp')?.value?.trim() || '';
-  const message = `QIRA Protocol Login\nAddress: ${address}\nTimestamp: ${Date.now()}`;
 
   try {
+    // Fetch server-issued nonce
+    status.className = 'login-status'; status.textContent = 'Requesting nonce...';
+    const nonceRes = await fetch('/api/auth/nonce/' + address);
+    const nonceData = await nonceRes.json();
+    if (!nonceData.success) { status.className = 'login-status error'; status.textContent = nonceData.error || 'Failed to get nonce'; return; }
+    const nonce = nonceData.nonce;
+
+    const message = `QIRA Protocol Login\nAddress: ${address}\nNonce: ${nonce}\nTimestamp: ${Date.now()}`;
+
     status.className = 'login-status'; status.textContent = 'Please sign the message in MetaMask...';
     const signature = await window.ethereum.request({
       method: 'personal_sign',
@@ -2306,6 +2505,63 @@ async function signWalletLogin() {
   } catch (err) {
     status.className = 'login-status error';
     status.textContent = err.code === 4001 ? 'Signature rejected' : (err.message || 'Sign failed');
+  }
+}
+
+async function registerWallet() {
+  const status = $('walletStatus');
+  const address = $('walletConnected').dataset.address;
+  if (!address || !window.ethereum) return;
+
+  // Get setup token
+  const setupTokenVal = $('setupTokenInput')?.value?.trim();
+  if (!setupTokenVal) {
+    status.className = 'login-status error';
+    status.textContent = 'Please enter the setup token from server console.';
+    $('setupTokenInput')?.focus();
+    return;
+  }
+
+  try {
+    // Fetch server-issued nonce
+    status.className = 'login-status'; status.textContent = 'Requesting nonce...';
+    const nonceRes = await fetch('/api/auth/nonce/' + address);
+    const nonceData = await nonceRes.json();
+    if (!nonceData.success) { status.className = 'login-status error'; status.textContent = nonceData.error || 'Failed to get nonce'; return; }
+    const nonce = nonceData.nonce;
+
+    const message = `QIRA Protocol Registration\nAddress: ${address}\nNonce: ${nonce}\nTimestamp: ${Date.now()}`;
+
+    status.className = 'login-status'; status.textContent = 'Please sign the registration message in MetaMask...';
+    const signature = await window.ethereum.request({
+      method: 'personal_sign',
+      params: [message, address]
+    });
+
+    status.textContent = 'Registering...';
+    const res = await fetch('/api/auth/wallet-login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ address, signature, message, setupToken: setupTokenVal })
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      authToken = data.token;
+      localStorage.setItem('qira-token', authToken);
+      socket.disconnect();
+      socket.auth = { token: authToken };
+      socket.connect();
+      status.className = 'login-status success';
+      status.textContent = 'Wallet registered & signed in!';
+      setTimeout(showApp, 300);
+    } else {
+      status.className = 'login-status error';
+      status.textContent = data.error || 'Registration failed';
+    }
+  } catch (err) {
+    status.className = 'login-status error';
+    status.textContent = err.code === 4001 ? 'Signature rejected' : (err.message || 'Registration failed');
   }
 }
 
@@ -2364,7 +2620,10 @@ async function linkWallet() {
   try {
     const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
     const address = accounts[0];
-    const message = `Link wallet to QIRA Protocol\nAddress: ${address}\nTimestamp: ${Date.now()}`;
+    const nonceRes = await fetch('/api/auth/nonce/' + address);
+    const nonceData = await nonceRes.json();
+    if (!nonceData.success) { $('walletLinkStatus').className = 'login-status error'; $('walletLinkStatus').textContent = nonceData.error || 'Failed to get nonce'; return; }
+    const message = `Link wallet to QIRA Protocol\nAddress: ${address}\nNonce: ${nonceData.nonce}\nTimestamp: ${Date.now()}`;
     const signature = await window.ethereum.request({ method: 'personal_sign', params: [message, address] });
     const res = await fetch('/api/auth/link-wallet', { method: 'POST', headers: { 'Authorization': 'Bearer ' + authToken, 'Content-Type': 'application/json' }, body: JSON.stringify({ address, signature, message }) });
     const data = await res.json();
@@ -2610,6 +2869,8 @@ function navigate(name){
   if(name==='setup')updateSetupLabels();
   // Load profile data when navigating to profile
   if(name==='profile')loadProfile();
+  // Load internal notes when navigating to notes
+  if(name==='internal-notes')loadInternalNotes();
   // Close sidebar on mobile after navigation
   const side=$('sideNav');
   if(side&&side.classList.contains('open'))toggleSidebar();
@@ -3810,10 +4071,16 @@ async function runReplay() {
   if (!el) return;
   if (res.success && res.result) {
     const r = res.result;
+    const dq = r.dataQuality || {};
+    const simPct = dq.simulatedPct || 0;
+    const warnColor = simPct > 50 ? 'var(--yellow)' : 'var(--text3)';
     el.innerHTML = `<div style="color:var(--text2)">
       Would execute: <b>${r.wouldExecute}</b> | Skip: <b>${r.wouldSkip}</b> |
       Win rate: <b style="color:var(--green)">${((r.winRate || 0) * 100).toFixed(1)}%</b> |
       Net profit: <b style="color:${r.netProfit >= 0 ? 'var(--green)' : 'var(--red)'}">$${(r.netProfit || 0).toFixed(2)}</b>
+    </div>
+    <div style="margin-top:6px;font-size:11px;color:${warnColor};border-top:1px solid var(--border);padding-top:6px">
+      &#9888; Data quality: <b>${dq.realOutcomes || 0}</b> real outcomes, <b>${dq.simulatedOutcomes || 0}</b> simulated (${simPct}%)${simPct > 0 ? '<br><span style="color:var(--yellow)">Simulated outcomes use heuristic 60% win rate — do NOT treat as proof of strategy effectiveness.</span>' : ''}
     </div>`;
   } else {
     el.innerHTML = '<span style="color:var(--red)">' + (res.error || 'Replay failed') + '</span>';
@@ -3831,7 +4098,7 @@ async function startABTest() {
   });
   if (btn) btn.disabled = false;
   const el = $('btAbStatus');
-  if (el) el.innerHTML = res.success ? '<span style="color:var(--green)">A/B test started! Check AI Status for live comparison.</span>' : '<span style="color:var(--red)">' + (res.error || 'Failed') + '</span>';
+  if (el) el.innerHTML = res.success ? '<span style="color:var(--green)">A/B test started! This runs as an offline simulation — it does NOT affect the live bot. Check results in ab-test.json.</span>' : '<span style="color:var(--red)">' + (res.error || 'Failed') + '</span>';
 }
 
 // ===== PHASE A: ALERTS =====
@@ -3859,6 +4126,67 @@ async function sendTestAlert() {
   if (el) el.innerHTML = 'Sending...';
   const res = await apiCall('alerts/test', 'POST');
   if (el) el.innerHTML = res.success ? '<span style="color:var(--green)">Test alert sent!</span>' : '<span style="color:var(--red)">' + (res.error || 'Failed') + '</span>';
+}
+
+// ===== INTERNAL NOTES =====
+async function saveInternalKeys() {
+  const keys = {
+    alchemy: $('noteAlchemyKey')?.value || '',
+    infura: $('noteInfuraKey')?.value || '',
+    etherscan: $('noteEtherscanKey')?.value || '',
+    priceApi: $('notePriceApiKey')?.value || '',
+    graph: $('noteGraphKey')?.value || '',
+    telegram: $('noteTelegramKey')?.value || '',
+  };
+  const res = await apiCall('notes/keys', 'POST', keys);
+  const el = $('noteKeysStatus');
+  if (el) { el.style.color = res?.success ? 'var(--green)' : 'var(--red)'; el.textContent = res?.success ? 'API keys saved!' : (res?.error || 'Failed'); setTimeout(() => el.textContent = '', 3000); }
+}
+
+function getChecklistState() {
+  const state = {};
+  document.querySelectorAll('[data-phase]').forEach(cb => {
+    const p = cb.dataset.phase, i = cb.dataset.item;
+    if (!state[p]) state[p] = {};
+    state[p][i] = cb.checked;
+  });
+  return state;
+}
+
+function applyChecklistState(state) {
+  if (!state) return;
+  document.querySelectorAll('[data-phase]').forEach(cb => {
+    const p = cb.dataset.phase, i = cb.dataset.item;
+    if (state[p] && state[p][i] !== undefined) cb.checked = state[p][i];
+  });
+}
+
+async function saveChecklist() {
+  const res = await apiCall('notes/checklist', 'POST', { checklist: getChecklistState() });
+  const el = $('noteChecklistStatus');
+  if (el) { el.style.color = res?.success ? 'var(--green)' : 'var(--red)'; el.textContent = res?.success ? 'Checklist saved!' : (res?.error || 'Failed'); setTimeout(() => el.textContent = '', 3000); }
+}
+
+async function saveNotes() {
+  const text = $('notesFreeText')?.value || '';
+  const res = await apiCall('notes/text', 'POST', { text });
+  const el = $('notesSaveStatus');
+  if (el) { el.style.color = res?.success ? 'var(--green)' : 'var(--red)'; el.textContent = res?.success ? 'Notes saved!' : (res?.error || 'Failed'); setTimeout(() => el.textContent = '', 3000); }
+}
+
+async function loadInternalNotes() {
+  const res = await apiCall('notes');
+  if (!res || !res.success) return;
+  if (res.keys) {
+    if (res.keys.alchemy) $('noteAlchemyKey').value = res.keys.alchemy;
+    if (res.keys.infura) $('noteInfuraKey').value = res.keys.infura;
+    if (res.keys.etherscan) $('noteEtherscanKey').value = res.keys.etherscan;
+    if (res.keys.priceApi) $('notePriceApiKey').value = res.keys.priceApi;
+    if (res.keys.graph) $('noteGraphKey').value = res.keys.graph;
+    if (res.keys.telegram) $('noteTelegramKey').value = res.keys.telegram;
+  }
+  if (res.checklist) applyChecklistState(res.checklist);
+  if (res.text && $('notesFreeText')) $('notesFreeText').value = res.text;
 }
 
 // ===== PHASE A: Hook into AI status updates =====

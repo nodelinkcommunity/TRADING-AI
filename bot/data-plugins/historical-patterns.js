@@ -182,7 +182,7 @@ class HistoricalPatternsPlugin extends BasePlugin {
           realTrades: realTrades.length,
           paperTrades: paperTrades.length,
           overallWinRate: allTrades.length > 0
-            ? allTrades.filter((t) => parseFloat(t.profit || 0) > 0).length / allTrades.length
+            ? allTrades.filter((t) => parseFloat(t.profit || t.profitUsd || 0) > 0).length / allTrades.length
             : 0,
         },
       };
@@ -307,7 +307,7 @@ class HistoricalPatternsPlugin extends BasePlugin {
    * @param {boolean} executed - Whether it was executed
    * @param {object} result - Execution result (if executed)
    */
-  storeOpportunity(opportunity, executed = false, result = null) {
+  storeOpportunity(opportunity, executed = false, result = null, recommended = false) {
     try {
       let opportunities = [];
       if (fs.existsSync(this.opportunitiesPath)) {
@@ -317,6 +317,7 @@ class HistoricalPatternsPlugin extends BasePlugin {
       opportunities.push({
         ...opportunity,
         executed,
+        recommended,
         result,
         storedAt: Date.now(),
       });

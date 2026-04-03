@@ -374,8 +374,10 @@ class LiquidationExecutor {
         console.log(`Using flashloan contract: ${this.flashloanContractAddress}`);
 
         // Encode LiquidationParams struct for the flashloan callback
+        // Must match contract struct: (address,address,address,uint256,bool,uint24,uint256)
+        const minProfitBps = opportunity.minProfitBps || 50; // default 0.5% minimum profit
         const params = ethers.AbiCoder.defaultAbiCoder().encode(
-          ["tuple(address,address,address,uint256,bool,uint24)"],
+          ["tuple(address,address,address,uint256,bool,uint24,uint256)"],
           [[
             opportunity.collateralAsset,
             opportunity.debtAsset,
@@ -383,6 +385,7 @@ class LiquidationExecutor {
             opportunity.debtToCover,
             true,   // useV3
             3000,   // default fee tier
+            minProfitBps, // MEV protection: minimum profit in basis points
           ]]
         );
 
@@ -465,10 +468,17 @@ class LiquidationExecutor {
 
 // ============ Main Bot ============
 
+// Chains that support liquidation (must have Aave deployment)
+const LIQUIDATION_SUPPORTED_CHAINS = Object.keys(CHAIN_CONFIG);
+
 class LiquidationBot {
   constructor(chain = "arbitrum") {
     this.chainName = chain;
     this.chainConfig = CHAIN_CONFIG[chain];
+    if (!this.chainConfig) {
+      const supported = LIQUIDATION_SUPPORTED_CHAINS.join(", ");
+      throw new Error(`Liquidation bot does not support chain "${chain}". Supported chains: ${supported}. Liquidation requires an Aave V3 deployment.`);
+    }
     this.isRunning = false;
     this.stats = {
       scansCompleted: 0,

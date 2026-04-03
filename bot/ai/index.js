@@ -250,7 +250,7 @@ class AIEngine {
       try {
         const histPlugin = this.pluginManager.getPlugin("historical-patterns");
         if (histPlugin) {
-          histPlugin.storeOpportunity(opportunity, shouldExecute);
+          histPlugin.storeOpportunity(opportunity, false, null, shouldExecute);
         }
       } catch (_) {}
 
@@ -506,6 +506,7 @@ class AIEngine {
   /** Set risk level */
   setRiskLevel(level) {
     this.riskEngine.setRiskLevel(level);
+    if (this.autonomousManager) this.autonomousManager.riskLevel = level;
   }
 
   /** Get plugin health */

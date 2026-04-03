@@ -132,11 +132,31 @@ async function main() {
     }
   }
 
+  // Deploy LiquidationExecutor (for liquidation bot) on Aave-supported chains
+  let liqExecutorAddress = null;
+  if (aaveProvider) {
+    try {
+      console.log("\nDeploying LiquidationExecutor...");
+      const LiqExecutor = await hre.ethers.getContractFactory("LiquidationExecutor");
+      const liqContract = await LiqExecutor.deploy(aaveProvider);
+      await liqContract.waitForDeployment();
+      liqExecutorAddress = await liqContract.getAddress();
+      console.log(`  LiquidationExecutor deployed: ${liqExecutorAddress}`);
+    } catch (liqErr) {
+      console.log(`  LiquidationExecutor deployment skipped: ${liqErr.message}`);
+    }
+  } else {
+    console.log("\nLiquidationExecutor deployment skipped (no Aave provider on this chain).");
+  }
+
   // In thong tin deployment
   console.log("\n====================================");
   console.log("  Deployment Complete!");
   console.log("====================================");
   console.log(`Contract: ${contractAddress}`);
+  if (liqExecutorAddress) {
+    console.log(`LiquidationExecutor: ${liqExecutorAddress}`);
+  }
   console.log(`Type: ${contractType}`);
   console.log(`Owner: ${deployer.address}`);
   console.log(`Chain: ${chainId}`);

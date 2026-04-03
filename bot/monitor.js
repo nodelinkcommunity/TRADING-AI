@@ -486,7 +486,9 @@ class FlashloanBot {
       try { require("fs").accessSync(serverConfigPath); cfgPath = serverConfigPath; }
       catch (_) { cfgPath = "../config/config.json"; }
     }
-    this.config = require(cfgPath);
+    this.configPath = require("path").resolve(cfgPath);
+    this.config = JSON.parse(require("fs").readFileSync(this.configPath, "utf8"));
+    this.dataDir = require("path").join(__dirname, "..", "server", "data");
     this.isRunning = false;
     this.stats = {
       scansCompleted: 0,
@@ -682,6 +684,40 @@ class FlashloanBot {
   }
 
   async scanOnce() {
+    // Hot-reload config from disk (allows server to update risk level, circuit breaker, etc.)
+    try {
+      const freshConfig = JSON.parse(require("fs").readFileSync(this.configPath, "utf8"));
+      if (freshConfig.minProfitBps) this.config.minProfitBps = freshConfig.minProfitBps;
+      if (freshConfig.maxSlippageBps) this.config.maxSlippageBps = freshConfig.maxSlippageBps;
+
+      // Propagate risk level change to AI runtime (riskEngine + autonomousManager)
+      const newRiskLevel = freshConfig.ai?.riskLevel;
+      if (newRiskLevel && newRiskLevel !== this.config.ai?.riskLevel) {
+        this.config.ai = { ...this.config.ai, ...freshConfig.ai };
+        if (this.ai) {
+          // Update riskEngine
+          if (this.ai.riskEngine) this.ai.riskEngine.setRiskLevel(newRiskLevel);
+          // Update autonomousManager so it uses the new level for parameter adjustments
+          if (this.ai.autonomousManager) this.ai.autonomousManager.riskLevel = newRiskLevel;
+          console.log(`[RISK] Risk level updated to: ${newRiskLevel}`);
+        }
+      } else if (freshConfig.ai?.riskLevel) {
+        this.config.ai = { ...this.config.ai, ...freshConfig.ai };
+      }
+    } catch (_) {}
+
+    // Check for circuit breaker reset signal from server
+    try {
+      const signalPath = require("path").join(this.dataDir, "circuit-breaker-reset.signal");
+      if (require("fs").existsSync(signalPath)) {
+        if (this.ai?.riskEngine?.circuitBreaker) {
+          this.ai.riskEngine.circuitBreaker.reset();
+          console.log("[RISK] Circuit breaker reset by operator");
+        }
+        require("fs").unlinkSync(signalPath);
+      }
+    } catch (_) {}
+
     const startTime = Date.now();
     let foundOpportunities = [];
 
