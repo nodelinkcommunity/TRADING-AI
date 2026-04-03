@@ -3,24 +3,45 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>FLASHLOAN-AI | DeFi Arbitrage Command Center</title>
+<title>QIRA Protocol | Intelligent Flash Engine</title>
 <script src="/socket.io/socket.io.js"></script>
 <style>
-:root{--bg:#06080f;--bg2:#0c1220;--bg3:#121d33;--bg4:#182846;--accent:#00d4ff;--accent2:#7c5cfc;--accent3:#00f5d4;--green:#10b981;--red:#ef4444;--yellow:#f59e0b;--orange:#f97316;--pink:#ec4899;--text:#e4e8f1;--text2:#6b7fa0;--text3:#4a5b78;--border:#1a2744;--border2:#243454;--glow:rgba(0,212,255,.08)}
+:root{--bg:#08060f;--bg2:#0d0b1e;--bg3:#16122a;--bg4:#1f1a3a;--accent:#c054f0;--accent2:#e040fb;--accent3:#22d3ee;--green:#10b981;--red:#ef4444;--yellow:#f59e0b;--orange:#f97316;--pink:#ff69b4;--text:#e4e8f1;--text2:#8b7fad;--text3:#5c5080;--border:#241b44;--border2:#342a5a;--glow:rgba(192,84,240,.08)}
+[data-theme="day"]{--bg:#f3f0f8;--bg2:#ffffff;--bg3:#ece8f4;--bg4:#dfd8ed;--accent:#9333ea;--accent2:#c026d3;--accent3:#0891b2;--green:#059669;--red:#dc2626;--yellow:#d97706;--orange:#ea580c;--pink:#db2777;--text:#1a1024;--text2:#5a4d6e;--text3:#8878a0;--border:#d4cce2;--border2:#c4bad6;--glow:rgba(147,51,234,.06)}
+[data-theme="day"] ::-webkit-scrollbar-track{background:var(--bg3)}
+[data-theme="day"] ::-webkit-scrollbar-thumb{background:var(--accent2)}
+[data-theme="day"] .logo-img{filter:drop-shadow(0 0 4px rgba(147,51,234,.3))}
+[data-theme="day"] .logo b{background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+[data-theme="day"] .card{box-shadow:0 1px 3px rgba(0,0,0,.06)}
+[data-theme="day"] input,[data-theme="day"] select,[data-theme="day"] textarea{background:var(--bg);border-color:var(--border)}
+[data-theme="day"] code{background:var(--bg3);color:var(--accent2)}
+.theme-toggle{background:var(--bg3);border:1px solid var(--border);border-radius:8px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;color:var(--text2);transition:.2s}.theme-toggle:hover{border-color:var(--accent);color:var(--accent)}
+.logo-img{height:40px;width:40px;object-fit:contain;filter:drop-shadow(0 0 8px rgba(192,84,240,.4));transition:.3s;border-radius:6px}.logo-img:hover{filter:drop-shadow(0 0 14px rgba(224,64,251,.6))}
+.quira-msg{display:flex;gap:10px;max-width:85%}.quira-msg.quira-user{align-self:flex-end;flex-direction:row-reverse}
+.quira-avatar{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px;flex-shrink:0}
+.quira-bot .quira-avatar{background:linear-gradient(135deg,#7b2fbe,#e040fb);color:#fff}
+.quira-user .quira-avatar{background:var(--bg4);color:var(--text2)}
+.quira-bubble{background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:12px 16px;font-size:12px;line-height:1.7;color:var(--text)}
+.quira-user .quira-bubble{background:var(--accent);color:#fff;border-color:var(--accent)}
+[data-theme="day"] .quira-user .quira-bubble{color:#fff}
+.quira-name{font-size:10px;font-weight:700;color:var(--accent);margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px}
+.quira-user .quira-name{color:rgba(255,255,255,.7)}
+.quira-typing{display:flex;gap:4px;padding:4px 0}.quira-typing span{width:6px;height:6px;background:var(--text3);border-radius:50%;animation:quiraTyping .8s infinite}.quira-typing span:nth-child(2){animation-delay:.15s}.quira-typing span:nth-child(3){animation-delay:.3s}
+@keyframes quiraTyping{0%,100%{opacity:.3;transform:translateY(0)}50%{opacity:1;transform:translateY(-4px)}}
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);font-size:13px;-webkit-font-smoothing:antialiased}
 ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:var(--bg2)}::-webkit-scrollbar-thumb{background:var(--accent2);border-radius:3px}
 button{cursor:pointer;font-family:inherit}
 input,select,textarea{font-family:inherit;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:9px 14px;font-size:12px;outline:none;width:100%;transition:border .2s}
-input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,212,255,.08)}
+input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(192,84,240,.08)}
 
 /* LAYOUT */
 .app{display:grid;grid-template-columns:240px 1fr;grid-template-rows:56px 1fr;min-height:100vh}
 .top{grid-column:1/-1;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 24px;backdrop-filter:blur(10px)}
 .logo{display:flex;align-items:center;gap:10px}
-.logo-icon{width:32px;height:32px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:900;color:var(--bg)}
-.logo b{font-size:16px;background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:.5px}
-.logo-sub{font-size:10px;color:var(--text2);margin-left:-2px}
+.logo-icon{width:32px;height:32px;background:linear-gradient(135deg,#7b2fbe,#e040fb);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:900;color:#fff}
+.logo b{font-size:16px;background:linear-gradient(90deg,#c054f0,#e040fb,#ff69b4);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:.5px}
+.logo-sub{font-size:12px;font-weight:600;color:var(--text2);margin-left:0;letter-spacing:.3px}
 .top-r{display:flex;align-items:center;gap:14px}
 .env-badge{padding:4px 14px;border-radius:12px;font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase}
 .env-test{background:rgba(245,158,11,.1);color:var(--yellow);border:1px solid rgba(245,158,11,.25)}
@@ -33,7 +54,7 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,
 .sb-section{font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px;padding:16px 16px 6px}
 .sb-btn{display:flex;align-items:center;gap:10px;width:100%;background:none;border:none;color:var(--text2);padding:9px 16px;font-size:12px;text-align:left;transition:.15s;font-weight:500;border-left:2px solid transparent}
 .sb-btn:hover{background:rgba(255,255,255,.02);color:var(--text)}
-.sb-btn.active{background:var(--glow);color:var(--accent);border-left-color:var(--accent)}
+.sb-btn.active{background:linear-gradient(90deg,rgba(123,47,190,.12),transparent);color:var(--accent);border-left-color:var(--accent)}
 .sb-btn .icon{width:18px;text-align:center;font-size:13px}
 .sb-btn .dot{width:7px;height:7px;border-radius:50%;margin-left:auto}
 .dot-on{background:var(--green);box-shadow:0 0 6px var(--green)}
@@ -56,16 +77,159 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
 .g4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
-@media(max-width:1100px){.g3,.g4{grid-template-columns:1fr 1fr}}
-@media(max-width:900px){.g2,.g3,.g4{grid-template-columns:1fr}.app{grid-template-columns:1fr}.side{display:none}}
+/* ===== MOBILE MENU TOGGLE ===== */
+.menu-toggle{display:none;background:none;border:none;color:var(--text);font-size:22px;padding:4px;cursor:pointer;line-height:1}
+.side-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:998;backdrop-filter:blur(2px)}
+.side-close{display:none;position:absolute;top:12px;right:12px;background:none;border:none;color:var(--text2);font-size:20px;cursor:pointer;z-index:1001}
+
+/* ===== RESPONSIVE BREAKPOINTS ===== */
+
+/* LARGE TABLET / SMALL DESKTOP (<=1200px) */
+@media(max-width:1200px){
+  .g4{grid-template-columns:repeat(2,1fr)}
+  .stat-grid{grid-template-columns:repeat(2,1fr)}
+}
+
+/* TABLET (<=1024px) */
+@media(max-width:1024px){
+  .app{grid-template-columns:220px 1fr}
+  .g3{grid-template-columns:1fr 1fr}
+  .main{padding:20px}
+  .strat-body{grid-template-columns:1fr}
+  .tab-group{flex-wrap:wrap;width:100%}
+  .tab-btn{flex:1;text-align:center;min-width:0;padding:7px 8px;font-size:10px}
+}
+
+/* SMALL TABLET (<=768px) */
+@media(max-width:768px){
+  .app{grid-template-columns:1fr;grid-template-rows:52px 1fr}
+  .top{padding:0 14px;height:52px}
+  .logo-img{height:34px;width:34px}
+  .logo b{font-size:14px}
+  .logo-sub{font-size:9px}
+  .env-badge{padding:3px 8px;font-size:9px}
+  .top-r{gap:10px}
+  #clock{display:none}
+  .menu-toggle{display:block}
+
+  /* Sidebar as overlay drawer */
+  .side{position:fixed;top:0;left:-280px;width:270px;height:100vh;z-index:999;transition:left .3s ease;padding-top:50px;box-shadow:4px 0 24px rgba(0,0,0,.4)}
+  .side.open{left:0}
+  .side-overlay.active{display:block}
+  .side-close{display:block}
+
+  .main{padding:16px}
+  .page-title{font-size:18px}
+  .g2,.g3,.g4{grid-template-columns:1fr}
+  .stat-grid{grid-template-columns:repeat(2,1fr);gap:8px}
+  .stat-card{padding:12px}
+  .stat-value{font-size:20px}
+  .card{padding:16px;border-radius:10px}
+  .card-header{flex-direction:column;align-items:flex-start;gap:8px}
+  .kpi{padding:12px}
+  .kpi-value{font-size:20px}
+  .bot-row{flex-wrap:wrap;gap:10px;padding:12px}
+  .bot-row .btn{flex:1;min-width:0;text-align:center;justify-content:center}
+  .log-area{height:320px;font-size:10px}
+  .data-table{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .scenario-table{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .trade-summary-bar{gap:12px;font-size:11px}
+  .guide-step{flex-direction:column;gap:10px;padding:14px}
+  .strat-header{flex-wrap:wrap}
+  .strat-stats{gap:8px}
+  .strat-stat{padding:6px 10px;flex:1;min-width:60px}
+  .tab-group{width:100%;flex-wrap:wrap}
+  .tab-btn{flex:1;text-align:center;min-width:0;padding:6px 6px;font-size:10px}
+  .quira-msg{max-width:95%}
+  .quira-card{height:calc(100vh - 180px)!important}
+  .pagination{flex-wrap:wrap;gap:4px}
+  .pagination button{padding:4px 8px;font-size:11px}
+}
+
+/* PHONE (<=480px) */
+@media(max-width:480px){
+  .app{grid-template-rows:48px 1fr}
+  .top{padding:0 10px;height:48px}
+  .logo-img{height:28px;width:28px}
+  .logo b{font-size:12px}
+  .logo-sub{display:none}
+  .env-badge{padding:2px 6px;font-size:8px;letter-spacing:.5px}
+  .top-r{gap:6px}
+  .theme-toggle{width:28px;height:28px;font-size:14px}
+  .conn{width:6px;height:6px}
+  .menu-toggle{font-size:20px}
+
+  .main{padding:10px}
+  .page-title{font-size:16px}
+  .page-desc{font-size:11px;margin-bottom:14px}
+  .stat-grid{grid-template-columns:1fr 1fr;gap:6px}
+  .stat-card{padding:10px}
+  .stat-label{font-size:9px;letter-spacing:.5px}
+  .stat-value{font-size:18px}
+  .stat-sub{font-size:10px}
+  .card{padding:12px;margin-bottom:12px;border-radius:8px}
+  .card-title{font-size:13px}
+  .kpi{padding:10px}
+  .kpi-value{font-size:18px}
+  .kpi-label{font-size:9px}
+  .g4{gap:8px}
+  .btn{padding:7px 12px;font-size:11px}
+  .btn-lg{padding:8px 16px;font-size:12px}
+  .btn-sm{padding:4px 8px;font-size:10px}
+  .bot-row{padding:10px;gap:8px}
+  .bot-name{font-size:12px}
+  .bot-desc{font-size:10px}
+  .log-area{height:260px;font-size:9px;padding:8px}
+  .alert{padding:10px 12px;font-size:11px}
+  .fg{margin-bottom:10px}
+  .fl{font-size:10px}
+  input,select,textarea{padding:8px 10px;font-size:11px}
+  .chain-check{padding:5px 8px;font-size:11px}
+  .strat-card{padding:14px}
+  .strat-name{font-size:14px}
+  .strat-tagline{font-size:10px}
+  .strat-icon{width:36px;height:36px;font-size:16px}
+  .strat-section{padding:10px}
+  .strat-stat-val{font-size:12px}
+  .strat-stat-lbl{font-size:8px}
+  .guide-step{padding:12px}
+  .guide-num{width:30px;height:30px;font-size:12px}
+  .guide-content h4{font-size:12px}
+  .guide-content p{font-size:11px}
+  .quira-bubble{padding:10px 12px;font-size:11px}
+  .quira-avatar{width:28px;height:28px;font-size:12px}
+  .quira-msg{gap:6px}
+  .quira-card{height:calc(100vh - 140px)!important}
+  .badge{font-size:9px;padding:2px 8px}
+  .sb-section{font-size:8px}
+  .toggle{width:36px;height:20px}
+  .toggle span::after{width:14px;height:14px;top:2px;left:2px}
+  .toggle input:checked+span::after{transform:translateX(16px)}
+}
+
+/* VERY SMALL PHONE (<=360px) */
+@media(max-width:360px){
+  .top{padding:0 8px}
+  .logo-img{height:24px;width:24px}
+  .logo b{font-size:11px}
+  .main{padding:8px}
+  .page-title{font-size:15px}
+  .stat-grid{grid-template-columns:1fr;gap:6px}
+  .stat-card{padding:8px}
+  .stat-value{font-size:16px}
+  .card{padding:10px}
+  .kpi-value{font-size:16px}
+  .bot-row{flex-direction:column;align-items:stretch}
+  .bot-row .btn{width:100%}
+}
 
 /* KPI */
 .kpi{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center;position:relative;overflow:hidden}
 .kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
-.kpi-accent::before{background:linear-gradient(90deg,var(--accent),transparent)}
+.kpi-accent::before{background:linear-gradient(90deg,#c054f0,transparent)}
 .kpi-green::before{background:linear-gradient(90deg,var(--green),transparent)}
 .kpi-orange::before{background:linear-gradient(90deg,var(--orange),transparent)}
-.kpi-purple::before{background:linear-gradient(90deg,var(--accent2),transparent)}
+.kpi-purple::before{background:linear-gradient(90deg,#e040fb,transparent)}
 .kpi-value{font-size:24px;font-weight:800;margin:6px 0 2px}
 .kpi-label{font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.8px;font-weight:600}
 
@@ -78,7 +242,7 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,
 .btn{padding:8px 18px;border-radius:8px;font-size:12px;font-weight:600;border:none;transition:.15s;display:inline-flex;align-items:center;gap:6px;letter-spacing:.2px}
 .btn:hover{filter:brightness(1.15);transform:translateY(-1px)}
 .btn:active{transform:translateY(0)}
-.btn-primary{background:linear-gradient(135deg,var(--accent),#0099cc);color:var(--bg);font-weight:700}
+.btn-primary{background:linear-gradient(135deg,#7b2fbe,#c054f0);color:#fff;font-weight:700}
 .btn-success{background:rgba(16,185,129,.12);color:var(--green);border:1px solid rgba(16,185,129,.25)}
 .btn-danger{background:rgba(239,68,68,.12);color:var(--red);border:1px solid rgba(239,68,68,.25)}
 .btn-warning{background:rgba(245,158,11,.12);color:var(--yellow);border:1px solid rgba(245,158,11,.25)}
@@ -91,15 +255,15 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,
 .badge-green{background:rgba(16,185,129,.1);color:var(--green)}
 .badge-red{background:rgba(239,68,68,.1);color:var(--red)}
 .badge-yellow{background:rgba(245,158,11,.1);color:var(--yellow)}
-.badge-blue{background:rgba(0,212,255,.1);color:var(--accent)}
-.badge-purple{background:rgba(124,92,252,.1);color:var(--accent2)}
+.badge-blue{background:rgba(192,84,240,.1);color:var(--accent)}
+.badge-purple{background:rgba(224,64,251,.1);color:var(--accent2)}
 
 /* TOGGLE */
 .toggle{position:relative;width:40px;height:22px;display:inline-block}
 .toggle input{display:none}
 .toggle span{position:absolute;inset:0;background:var(--bg);border:1px solid var(--border);border-radius:11px;cursor:pointer;transition:.25s}
 .toggle span::after{content:'';position:absolute;width:16px;height:16px;border-radius:50%;background:var(--text3);top:2px;left:2px;transition:.25s}
-.toggle input:checked+span{background:rgba(0,212,255,.12);border-color:var(--accent)}
+.toggle input:checked+span{background:rgba(192,84,240,.12);border-color:var(--accent)}
 .toggle input:checked+span::after{background:var(--accent);transform:translateX(18px);box-shadow:0 0 6px var(--accent)}
 
 /* DATA TABLES */
@@ -120,7 +284,7 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,
 
 /* CHAIN CHECKBOXES */
 .chain-check{display:flex;align-items:center;gap:6px;padding:6px 10px;background:var(--bg);border:1px solid var(--border);border-radius:8px;cursor:pointer;transition:.2s;font-size:12px}
-.chain-check:hover{border-color:var(--accent);background:rgba(0,212,255,.04)}
+.chain-check:hover{border-color:var(--accent);background:rgba(192,84,240,.04)}
 .chain-check input{accent-color:var(--accent);width:14px;height:14px;cursor:pointer}
 .chain-check input:checked ~ .chain-tag{opacity:1}
 .chain-tag{opacity:.6;font-weight:600;transition:.2s}
@@ -133,7 +297,7 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,
 .alert-warn{background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.15);color:var(--yellow)}
 .alert-danger{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.15);color:var(--red)}
 .alert-success{background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.15);color:var(--green)}
-.alert-info{background:rgba(0,212,255,.06);border:1px solid rgba(0,212,255,.15);color:var(--accent)}
+.alert-info{background:rgba(192,84,240,.06);border:1px solid rgba(192,84,240,.15);color:var(--accent)}
 
 /* LOG */
 .log-area{height:420px;overflow-y:auto;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px;font-family:'JetBrains Mono','Fira Code',monospace;font-size:11px;line-height:1.8}
@@ -169,7 +333,7 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,
 
 /* GUIDELINE */
 .guide-step{display:flex;gap:16px;margin-bottom:20px;padding:16px;background:var(--bg2);border:1px solid var(--border);border-radius:12px}
-.guide-num{width:36px;height:36px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--bg);flex-shrink:0;font-size:14px}
+.guide-num{width:36px;height:36px;background:linear-gradient(135deg,#7b2fbe,#e040fb);border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;flex-shrink:0;font-size:14px}
 .guide-content h4{font-size:13px;font-weight:700;margin-bottom:4px}
 .guide-content p{font-size:12px;color:var(--text2);line-height:1.7}
 
@@ -198,7 +362,7 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,
 
 /* STAT GRID (Trade Stats) */
 .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
-@media(max-width:900px){.stat-grid{grid-template-columns:repeat(2,1fr)}}
+/* stat-grid responsive handled in main responsive block above */
 .stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center}
 .stat-label{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:6px;font-weight:600}
 .stat-value{font-size:24px;font-weight:700;color:var(--text);font-family:'SF Mono',Monaco,monospace}
@@ -219,38 +383,109 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,
 .pagination button.active{background:var(--accent);color:var(--bg);border-color:var(--accent);font-weight:700}
 .pagination button:disabled{opacity:.4;cursor:default}
 .pagination .page-info{font-size:12px;color:var(--text3)}
+
+/* ===== LOGIN SCREEN ===== */
+.login-screen{position:fixed;inset:0;z-index:9999;background:var(--bg);display:flex;align-items:center;justify-content:center;flex-direction:column}
+.login-card{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:40px;width:100%;max-width:420px;margin:20px}
+.login-logo{text-align:center;margin-bottom:28px}
+.login-logo img{height:64px;width:64px;filter:drop-shadow(0 0 16px rgba(192,84,240,.5))}
+.login-logo h1{font-size:22px;margin-top:12px;background:linear-gradient(90deg,#c054f0,#e040fb,#ff69b4);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.login-logo p{font-size:12px;color:var(--text2);margin-top:4px}
+.login-divider{display:flex;align-items:center;gap:12px;margin:20px 0;color:var(--text3);font-size:11px}
+.login-divider::before,.login-divider::after{content:'';flex:1;height:1px;background:var(--border)}
+.login-tabs{display:flex;gap:4px;margin-bottom:20px;background:var(--bg3);padding:3px;border-radius:8px}
+.login-tab{flex:1;padding:8px;border:none;background:none;color:var(--text2);font-size:12px;font-weight:600;border-radius:6px;cursor:pointer;transition:.15s}
+.login-tab.active{background:var(--bg4);color:var(--accent)}
+.wallet-btn{width:100%;padding:14px;border-radius:10px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;transition:.2s}
+.wallet-btn:hover{border-color:var(--accent);background:rgba(192,84,240,.08)}
+.wallet-btn svg{width:22px;height:22px}
+.login-status{font-size:12px;margin-top:12px;text-align:center;min-height:18px}
+.login-status.error{color:var(--red)}
+.login-status.success{color:var(--green)}
+.totp-input{text-align:center;font-size:20px;letter-spacing:8px;font-weight:700;font-family:'SF Mono',Monaco,monospace}
+.security-section{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:16px;margin-top:16px}
+.security-section h4{font-size:12px;font-weight:700;margin-bottom:10px;color:var(--text)}
+@media(max-width:480px){.login-card{padding:24px 20px;margin:12px}.login-logo img{height:48px;width:48px}.login-logo h1{font-size:18px}}
 </style>
 </head>
 <body>
-<div class="app">
+
+<!-- ===== LOGIN SCREEN ===== -->
+<div class="login-screen" id="loginScreen">
+  <div class="login-card">
+    <div class="login-logo">
+      <img src="/qira-logo.png" alt="QIRA Protocol">
+      <h1>QIRA Protocol</h1>
+      <p>Intelligent Flash Engine</p>
+    </div>
+
+    <!-- Web3 Wallet Login -->
+    <div id="loginWallet">
+      <div style="text-align:center;margin-bottom:16px">
+        <div style="font-size:11px;color:var(--text2);line-height:1.6">Connect your Web3 wallet to sign in.<br>First-time connection will auto-register your account.</div>
+      </div>
+      <button class="wallet-btn" onclick="connectMetaMask()">
+        <svg viewBox="0 0 35 33" xmlns="http://www.w3.org/2000/svg" style="width:22px;height:22px"><path d="M32.96 1l-13.14 9.72 2.45-5.73L32.96 1z" fill="#E2761B"/><path d="M2.66 1l13.02 9.8L13.35 5 2.66 1z" fill="#E4761B"/><path d="M28.23 23.53l-3.5 5.34 7.49 2.06 2.14-7.28-6.13-.12z" fill="#E4761B"/><path d="M1.27 23.65l2.13 7.28 7.47-2.06-3.48-5.34-6.12.12z" fill="#E4761B"/></svg>
+        Connect MetaMask
+      </button>
+      <div class="login-divider">or</div>
+      <button class="wallet-btn" onclick="connectWalletConnect()">
+        <span style="font-size:18px">&#128279;</span>
+        WalletConnect (Coming Soon)
+      </button>
+      <div class="login-status" id="walletStatus"></div>
+      <div id="walletConnected" style="display:none;margin-top:16px;text-align:center">
+        <div style="font-size:11px;color:var(--text2)">Connected Wallet</div>
+        <div id="walletAddr" style="font-size:13px;font-weight:600;color:var(--accent);margin:6px 0;word-break:break-all"></div>
+        <button class="btn btn-primary" onclick="signWalletLogin()">Sign In with Wallet</button>
+      </div>
+      <!-- TOTP verification (shown after wallet connect if 2FA enabled) -->
+      <div id="loginTotpSection" style="display:none;margin-top:16px">
+        <div class="fg">
+          <label class="fl">Authenticator Code (2FA)</label>
+          <input type="text" id="loginTotp" class="totp-input" placeholder="000000" maxlength="6" onkeydown="if(event.key==='Enter')signWalletLogin()">
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MAIN APP (hidden until logged in) ===== -->
+<div class="app" id="mainApp" style="display:none">
 
 <!-- ===== TOPBAR ===== -->
 <div class="top">
   <div class="logo">
-    <div class="logo-icon">FA</div>
+    <img src="/qira-logo.png" alt="QIRA Protocol" class="logo-img">
     <div>
-      <b>FLASHLOAN-AI</b>
-      <div class="logo-sub">DeFi Arbitrage Command Center v1.0</div>
+      <b>QIRA Protocol</b>
+      <div class="logo-sub">Intelligent Flash Engine</div>
     </div>
   </div>
   <div class="top-r">
     <span class="env-badge env-test" id="netBadge">TESTNET</span>
+    <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Toggle Day/Night mode">
+      <span id="themeIcon">&#9790;</span>
+    </button>
     <div class="conn" id="connDot" title="WebSocket connection"></div>
     <span style="font-size:11px;color:var(--text2)" id="clock"></span>
+    <button class="menu-toggle" onclick="toggleSidebar()" title="Menu" aria-label="Open menu">&#9776;</button>
   </div>
 </div>
 
+<!-- ===== SIDEBAR OVERLAY ===== -->
+<div class="side-overlay" id="sideOverlay" onclick="toggleSidebar()"></div>
+
 <!-- ===== SIDEBAR ===== -->
-<div class="side">
+<div class="side" id="sideNav">
+  <button class="side-close" onclick="toggleSidebar()" aria-label="Close menu">&times;</button>
   <div class="sb-section">Getting Started</div>
   <button class="sb-btn active" onclick="navigate('dashboard')"><span class="icon">&#9635;</span> Dashboard</button>
   <button class="sb-btn" onclick="navigate('setup')"><span class="icon">&#9881;</span> Setup & Credentials</button>
-  <button class="sb-btn" onclick="navigate('guidelines')"><span class="icon">&#9782;</span> Guidelines</button>
 
   <div class="sb-section">Configuration</div>
   <button class="sb-btn" onclick="navigate('config')"><span class="icon">&#9874;</span> Trading Config</button>
   <button class="sb-btn" onclick="navigate('strategies')"><span class="icon">&#9733;</span> Strategies</button>
-  <button class="sb-btn" onclick="navigate('scenarios')"><span class="icon">&#9730;</span> Scenarios</button>
 
   <div class="sb-section">Operations</div>
   <button class="sb-btn" onclick="navigate('bots')"><span class="icon">&#9889;</span> Bot Control <span class="dot dot-off" id="dotAll"></span></button>
@@ -258,7 +493,23 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,
   <button class="sb-btn" onclick="navigate('logs')"><span class="icon">&#9776;</span> Live Logs</button>
   <button class="sb-btn" onclick="navigate('stats')"><span class="icon">&#9670;</span> Analytics</button>
   <button class="sb-btn" onclick="navigate('trades')"><span class="icon">&#128203;</span> Trading History</button>
-  <button class="sb-btn" onclick="navigate('simulated')"><span class="icon">&#128202;</span> Simulated Transactions</button>
+  <button class="sb-btn" onclick="navigate('simulated')"><span class="icon">&#128202;</span> Trading Simulation</button>
+
+  <div class="sb-section">QIRA AI Engine</div>
+  <button class="sb-btn" onclick="navigate('market-intel')"><span class="icon">&#127760;</span> Market Intelligence</button>
+  <button class="sb-btn" onclick="navigate('ai-decisions')"><span class="icon">&#9889;</span> AI Decisions</button>
+  <button class="sb-btn" onclick="navigate('risk-mgmt')"><span class="icon">&#128737;</span> Risk Management</button>
+  <button class="sb-btn" onclick="navigate('backtesting')"><span class="icon">&#128200;</span> Backtesting</button>
+  <button class="sb-btn" onclick="navigate('alerts-config')"><span class="icon">&#128276;</span> Alert Settings</button>
+
+  <div class="sb-section">Account</div>
+  <button class="sb-btn" onclick="navigate('profile')"><span class="icon">&#128100;</span> Profile</button>
+
+  <div class="sb-section">Infos</div>
+  <button class="sb-btn" onclick="navigate('introduction')"><span class="icon">&#128218;</span> Introduction</button>
+  <button class="sb-btn" onclick="navigate('guidelines')"><span class="icon">&#9782;</span> Guidelines</button>
+  <button class="sb-btn" onclick="navigate('scenarios')"><span class="icon">&#9730;</span> Scenarios</button>
+  <button class="sb-btn" onclick="navigate('quira')"><span class="icon">&#129302;</span> QUIRA Support</button>
 </div>
 
 <!-- ===== MAIN CONTENT ===== -->
@@ -266,7 +517,7 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,
 
 <!-- ========== DASHBOARD ========== -->
 <div class="panel active" id="p-dashboard">
-  <div class="page-title">Command Center</div>
+  <div class="page-title">QIRA Command Center</div>
   <div class="page-desc">Real-time overview of all systems. Monitor your bots, strategies, and performance at a glance.</div>
 
   <div class="stat-grid">
@@ -368,26 +619,53 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,
     <div class="card-header">
       <div><div class="card-title">Step 1 &mdash; Select Network & Credentials</div><div class="card-subtitle">Choose the network to deploy, then enter your credentials</div></div>
     </div>
-    <div class="fg" style="margin-bottom:12px">
-      <label class="fl">Target Network</label>
-      <select id="setupChainSelect" onchange="onSetupChainChange()" style="width:100%;max-width:400px;padding:10px 12px;background:var(--bg1);color:var(--text1);border:1px solid var(--border);border-radius:8px;font-size:14px">
-        <option value="arbitrum">Arbitrum One (Mainnet)</option>
-        <option value="base">Base (Mainnet)</option>
-        <option value="polygon">Polygon (Mainnet)</option>
-        <option value="bsc">BSC / BNB Chain (Mainnet)</option>
-        <option value="avalanche">Avalanche C-Chain (Mainnet)</option>
-        <option value="mantle">Mantle (Mainnet)</option>
-        <option value="scroll">Scroll (Mainnet)</option>
-        <option value="arbitrumSepolia">Arbitrum Sepolia (Testnet)</option>
-        <option value="baseSepolia">Base Sepolia (Testnet)</option>
-      </select>
-      <div class="fh" id="setupChainInfo" style="margin-top:6px;font-size:12px">Gas token: <b>ETH</b> &nbsp;|&nbsp; Flash Loan: <b>Aave V3</b></div>
+    <div class="g2" style="margin-bottom:12px">
+      <div class="fg">
+        <label class="fl">Target Network</label>
+        <select id="setupChainSelect" onchange="onSetupChainChange()" style="width:100%;padding:10px 12px;background:var(--bg1);color:var(--text1);border:1px solid var(--border);border-radius:8px;font-size:14px">
+          <option value="arbitrum">Arbitrum One (Mainnet)</option>
+          <option value="base">Base (Mainnet)</option>
+          <option value="polygon">Polygon (Mainnet)</option>
+          <option value="bsc">BSC / BNB Chain (Mainnet)</option>
+          <option value="avalanche">Avalanche C-Chain (Mainnet)</option>
+          <option value="mantle">Mantle (Mainnet)</option>
+          <option value="scroll">Scroll (Mainnet)</option>
+          <option value="arbitrumSepolia">Arbitrum Sepolia (Testnet)</option>
+          <option value="baseSepolia">Base Sepolia (Testnet)</option>
+        </select>
+        <div class="fh" id="setupChainInfo" style="margin-top:6px;font-size:12px">Gas token: <b>ETH</b> &nbsp;|&nbsp; Flash Loan: <b>Aave V3</b></div>
+      </div>
+      <div id="rpcGuideBox" style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:16px;font-size:12px;line-height:1.8">
+        <div style="font-weight:700;color:var(--accent);margin-bottom:8px;font-size:13px">&#128218; How to get RPC URL</div>
+        <div id="rpcGuideContent">
+          <div style="color:var(--text2);margin-bottom:8px">Create a free account on one of these providers and copy the endpoint URL:</div>
+          <div style="margin-bottom:4px">&#9889; <a href="https://www.alchemy.com/" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:underline;font-weight:600">Alchemy</a> — Recommended, free tier: 300M compute units/month</div>
+          <div style="margin-bottom:4px">&#128293; <a href="https://www.infura.io/" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:underline;font-weight:600">Infura</a> — 100K requests/day free</div>
+          <div style="margin-bottom:4px">&#128640; <a href="https://www.quicknode.com/" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:underline;font-weight:600">QuickNode</a> — Fast, multi-chain support</div>
+          <div style="margin-top:8px;padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-family:'SF Mono',Monaco,monospace;font-size:11px;color:var(--text3);word-break:break-all" id="rpcGuideExample">https://arb-mainnet.g.alchemy.com/v2/YOUR_API_KEY</div>
+        </div>
+      </div>
     </div>
+    <!-- Connected Wallet Info -->
+    <div id="setupWalletInfo" style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:16px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <span style="font-size:18px">&#128279;</span>
+        <div>
+          <div style="font-size:12px;font-weight:700;color:var(--text)">Connected Wallet</div>
+          <div id="setupWalletAddr" style="font-size:12px;font-weight:600;color:var(--accent);word-break:break-all;font-family:'SF Mono',Monaco,monospace;margin-top:2px">—</div>
+        </div>
+      </div>
+    </div>
+
     <div class="g2">
       <div class="fg">
-        <label class="fl">Private Key</label>
+        <label class="fl">Private Key <span style="color:var(--yellow);font-weight:400">(required for bot)</span></label>
         <input type="password" id="inPK" placeholder="0x followed by 64 hex characters...">
-        <div class="fh">Export from MetaMask: Account &rarr; Export Private Key. Use a dedicated bot wallet only.</div>
+        <div class="fh" style="line-height:1.6;margin-top:6px">
+          &#128274; <b>Why is this needed?</b> The bot executes trades automatically on-chain without your interaction. MetaMask cannot export private keys via API (security by design).<br>
+          &#9889; Export from MetaMask: <b>Account &rarr; Account Details &rarr; Show Private Key</b><br>
+          &#128737; <b>Important:</b> Use a dedicated bot wallet with limited funds — never your main wallet.
+        </div>
       </div>
       <div class="fg">
         <label class="fl">RPC URL (<span id="rpcChainLabel">Arbitrum One</span>)</label>
@@ -435,6 +713,103 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,
     <div class="card-header"><div class="card-title">Step 3 &mdash; Ready to Go</div></div>
     <p style="color:var(--text2);font-size:12px;margin-bottom:12px">Once credentials are saved and contract is deployed, navigate to Bot Control to start scanning for opportunities.</p>
     <button class="btn btn-success btn-lg" onclick="navigate('bots')">Open Bot Control &rarr;</button>
+  </div>
+</div>
+
+<!-- ========== INTRODUCTION ========== -->
+<div class="panel" id="p-introduction">
+  <div class="page-title">Introduction</div>
+  <div class="page-desc">Welcome to QIRA Protocol — a multi-chain DeFi arbitrage automation platform powered by AI.</div>
+
+  <div class="g2">
+    <div class="card">
+      <div class="card-header"><div class="card-title">What is QIRA Protocol?</div></div>
+      <div style="font-size:12px;line-height:1.8;color:var(--text2)">
+        <p>QIRA Protocol is an intelligent DeFi arbitrage bot that uses flash loans to capture price differences across decentralized exchanges (DEXs). It borrows large amounts of tokens without collateral, executes multi-step trades across different DEXs, and repays the loan — all in a single atomic transaction.</p>
+        <p style="margin-top:10px">The bot is powered by an <b style="color:var(--accent)">AI Decision Engine</b> that analyzes market conditions, predicts gas prices, assesses risks, and autonomously adjusts trading parameters in real-time.</p>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">Supported Chains</div></div>
+      <div style="font-size:12px;line-height:1.8;color:var(--text2)">
+        <table class="scenario-table">
+          <thead><tr><th>Chain</th><th>Flash Loan Provider</th><th>DEXs</th></tr></thead>
+          <tbody>
+            <tr><td><b>Arbitrum</b></td><td>Aave V3</td><td>Uniswap V3, SushiSwap, Camelot</td></tr>
+            <tr><td><b>Base</b></td><td>Aave V3</td><td>Uniswap V3, Aerodrome</td></tr>
+            <tr><td><b>Polygon</b></td><td>Aave V3</td><td>Uniswap V3, SushiSwap, QuickSwap</td></tr>
+            <tr><td><b>BSC</b></td><td>PancakeSwap V3</td><td>PancakeSwap V3/V2, BiSwap, ApeSwap</td></tr>
+            <tr><td><b>Avalanche</b></td><td>Aave V3</td><td>Uniswap V3, TraderJoe, Pangolin</td></tr>
+            <tr><td><b>Mantle</b></td><td>Lendle (Aave fork)</td><td>Agni Finance, Merchant Moe, FusionX</td></tr>
+            <tr><td><b>Scroll</b></td><td>Aave V3</td><td>Uniswap V3, SyncSwap, Ambient</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><div class="card-title">How It Works</div></div>
+    <div style="font-size:12px;line-height:1.8;color:var(--text2)">
+      <div class="g4" style="text-align:center;margin:16px 0">
+        <div class="kpi" style="padding:20px 12px">
+          <div style="font-size:24px;margin-bottom:6px">1</div>
+          <div class="kpi-label" style="font-size:11px">SCAN</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:6px">Monitor prices across all DEXs every 3 seconds</div>
+        </div>
+        <div class="kpi" style="padding:20px 12px">
+          <div style="font-size:24px;margin-bottom:6px">2</div>
+          <div class="kpi-label" style="font-size:11px">ANALYZE</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:6px">AI scores opportunity, checks risk, predicts gas</div>
+        </div>
+        <div class="kpi" style="padding:20px 12px">
+          <div style="font-size:24px;margin-bottom:6px">3</div>
+          <div class="kpi-label" style="font-size:11px">BORROW</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:6px">Flash loan borrows tokens (no collateral needed)</div>
+        </div>
+        <div class="kpi" style="padding:20px 12px">
+          <div style="font-size:24px;margin-bottom:6px">4</div>
+          <div class="kpi-label" style="font-size:11px">PROFIT</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:6px">Execute swaps, repay loan, keep the profit</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="g2">
+    <div class="card">
+      <div class="card-header"><div class="card-title">QIRA AI Engine Features (Phase A)</div></div>
+      <div style="font-size:12px;line-height:1.8;color:var(--text2)">
+        <ul style="margin:0;padding-left:18px">
+          <li><b style="color:var(--accent)">Data Plugins</b> — Real-time data from The Graph, DeFi Llama, Dune Analytics</li>
+          <li><b style="color:var(--accent)">Risk Engine</b> — Position sizing, circuit breaker, blacklist detection, audit trail</li>
+          <li><b style="color:var(--accent)">Autonomous Manager</b> — Auto-adjusts gas, slippage, min profit, scan interval</li>
+          <li><b style="color:var(--accent)">Advisory Manager</b> — Strategic AI recommendations you approve or reject</li>
+          <li><b style="color:var(--accent)">Backtesting</b> — Replay opportunities, historical simulation, A/B testing</li>
+          <li><b style="color:var(--accent)">Alert System</b> — Telegram and Discord notifications</li>
+          <li><b style="color:var(--accent)">Market Intelligence</b> — Whale tracking, liquidity analysis, sentiment</li>
+        </ul>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">Quick Start</div></div>
+      <div style="font-size:12px;line-height:1.8;color:var(--text2)">
+        <ol style="margin:0;padding-left:18px">
+          <li><b>Setup</b> — Go to <a href="#" onclick="navigate('setup');return false" style="color:var(--accent)">Setup & Credentials</a> to configure your wallet and RPC</li>
+          <li><b>Deploy</b> — Compile and deploy the smart contract to your chosen chain</li>
+          <li><b>Configure</b> — Adjust <a href="#" onclick="navigate('config');return false" style="color:var(--accent)">Trading Config</a> (start with Paper Trading ON)</li>
+          <li><b>Run</b> — Start the bot from <a href="#" onclick="navigate('bots');return false" style="color:var(--accent)">Bot Control</a></li>
+          <li><b>Monitor</b> — Watch the <a href="#" onclick="navigate('ai');return false" style="color:var(--accent)">AI Insights</a> and <a href="#" onclick="navigate('market-intel');return false" style="color:var(--accent)">Market Intelligence</a></li>
+          <li><b>Backtest</b> — Use <a href="#" onclick="navigate('backtesting');return false" style="color:var(--accent)">Backtesting</a> to validate before going live</li>
+          <li><b>Go Live</b> — Switch Paper Trading OFF when confident</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+
+  <div class="alert alert-warn" style="margin-top:8px">
+    <span class="alert-icon">&#9888;</span>
+    <div><b>Disclaimer:</b> DeFi trading carries significant risk. Flash loan arbitrage is competitive and profits are not guaranteed. Never invest more than you can afford to lose. This is not financial advice — always do your own research (DYOR).</div>
   </div>
 </div>
 
@@ -637,7 +1012,7 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,
   <!-- STRATEGY 1: DEX-to-DEX Arbitrage -->
   <div class="strat-card" id="strat-dexArbitrage">
     <div class="strat-header">
-      <div class="strat-icon" style="background:rgba(0,212,255,.1);color:var(--accent)">&#8644;</div>
+      <div class="strat-icon" style="background:rgba(192,84,240,.1);color:var(--accent)">&#8644;</div>
       <div class="strat-meta">
         <div class="strat-name">1. DEX-to-DEX Arbitrage</div>
         <div class="strat-tagline">Buy low on one DEX, sell high on another within the same flashloan transaction. The bread-and-butter of on-chain arbitrage. Works across Uniswap V3, SushiSwap, Camelot, and more.</div>
@@ -678,7 +1053,7 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,
   <!-- STRATEGY 2: Triangular Arbitrage -->
   <div class="strat-card" id="strat-triangular">
     <div class="strat-header">
-      <div class="strat-icon" style="background:rgba(124,92,252,.1);color:var(--accent2)">&#9651;</div>
+      <div class="strat-icon" style="background:rgba(224,64,251,.1);color:var(--accent2)">&#9651;</div>
       <div class="strat-meta">
         <div class="strat-name">2. Triangular Arbitrage</div>
         <div class="strat-tagline">Exploit pricing inconsistencies across three token pairs on the same or different DEXs. A &rarr; B &rarr; C &rarr; A, ending with more A than you started. More complex but harder for competitors to spot.</div>
@@ -1215,7 +1590,7 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,
 <!-- ========== SIMULATED TRANSACTIONS ========== -->
 <div class="panel" id="p-simulated">
   <div class="page-title" style="display:flex;align-items:center;justify-content:space-between">
-    <span>Simulated Transactions</span>
+    <span>Trading Simulation</span>
     <div style="display:flex;gap:8px">
       <button class="btn btn-warning btn-sm" onclick="generateTestTrade()">Generate Test</button>
       <button class="btn btn-ghost btn-sm" onclick="exportSimCSV()">Export CSV</button>
@@ -1445,13 +1820,634 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,
   </div>
 </div>
 
+<!-- ========== MARKET INTELLIGENCE (Phase A) ========== -->
+<div class="panel" id="p-market-intel">
+  <div class="page-title">Market Intelligence</div>
+  <div class="page-desc">Real-time data from DeFi Llama, The Graph, and on-chain whale tracking. AI aggregates all sources into actionable signals.</div>
+
+  <div class="g4" style="margin-bottom:20px">
+    <div class="kpi kpi-accent">
+      <div class="kpi-label">Market Sentiment</div>
+      <div class="kpi-value" id="miSentiment" style="color:var(--accent)">0.00</div>
+    </div>
+    <div class="kpi kpi-purple">
+      <div class="kpi-label">Whale Alert</div>
+      <div class="kpi-value" id="miWhaleAlert" style="color:var(--accent2);font-size:14px">NONE</div>
+    </div>
+    <div class="kpi kpi-orange">
+      <div class="kpi-label">Active Signals</div>
+      <div class="kpi-value" id="miSignalCount" style="color:var(--orange)">0</div>
+    </div>
+    <div class="kpi kpi-green">
+      <div class="kpi-label">Plugin Health</div>
+      <div class="kpi-value" id="miPluginHealth" style="color:var(--green);font-size:14px">--</div>
+    </div>
+  </div>
+
+  <div class="g2">
+    <div class="card">
+      <div class="card-header"><div class="card-title">Market Signals</div></div>
+      <div id="miSignalsList" style="font-size:12px">
+        <div class="alert alert-info" style="margin-bottom:0"><span class="alert-icon">&#128161;</span><div>Start the bot to begin receiving market signals from data plugins.</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">Whale Activity</div></div>
+      <div id="miWhaleList" style="font-size:12px">
+        <div class="bot-row"><div style="flex:1"><div class="bot-name">Buy Pressure</div></div><span id="miWhaleBuy" style="font-weight:700;color:var(--green)">0</span></div>
+        <div class="bot-row"><div style="flex:1"><div class="bot-name">Sell Pressure</div></div><span id="miWhaleSell" style="font-weight:700;color:var(--red)">0</span></div>
+        <div class="bot-row"><div style="flex:1"><div class="bot-name">Volume (1h)</div></div><span id="miWhaleVol" style="font-weight:700;color:var(--accent)">0 ETH</span></div>
+        <div class="bot-row"><div style="flex:1"><div class="bot-name">Impact</div></div><span id="miWhaleImpact" style="font-weight:700;color:var(--text2)">NONE</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><div class="card-title">Data Plugin Status</div></div>
+    <div id="miPluginList" style="font-size:12px">
+      <div class="bot-row"><div style="flex:1"><div class="bot-name">Pool Liquidity</div><div class="bot-desc">The Graph + DeFi Llama</div></div><span class="badge badge-gray" id="miPlugPool">--</span></div>
+      <div class="bot-row"><div style="flex:1"><div class="bot-name">Historical Patterns</div><div class="bot-desc">Dune Analytics + Local History</div></div><span class="badge badge-gray" id="miPlugHist">--</span></div>
+      <div class="bot-row"><div style="flex:1"><div class="bot-name">Whale Tracker</div><div class="bot-desc">Enhanced On-chain Monitoring</div></div><span class="badge badge-gray" id="miPlugWhale">--</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== AI DECISIONS (Phase A) ========== -->
+<div class="panel" id="p-ai-decisions">
+  <div class="page-title">AI Decisions</div>
+  <div class="page-desc">Autonomous decisions log and strategic advisory recommendations. Approve or reject AI suggestions for strategic changes.</div>
+
+  <div class="g2">
+    <div class="card">
+      <div class="card-header"><div class="card-title">Advisory Recommendations</div></div>
+      <div id="adAdvisoryList">
+        <div class="alert alert-info" style="margin-bottom:0"><span class="alert-icon">&#128161;</span><div>No pending recommendations. AI will generate suggestions based on market data and performance analysis.</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">Autonomous Adjustments</div></div>
+      <div id="adAutoStatus">
+        <div class="bot-row"><div style="flex:1"><div class="bot-name">Current Min Profit</div></div><span id="adMinProfit" style="font-weight:700;color:var(--accent)">-- bps</span></div>
+        <div class="bot-row"><div style="flex:1"><div class="bot-name">Current Max Slippage</div></div><span id="adMaxSlippage" style="font-weight:700;color:var(--accent)">-- bps</span></div>
+        <div class="bot-row"><div style="flex:1"><div class="bot-name">Scan Interval</div></div><span id="adScanInterval" style="font-weight:700;color:var(--accent)">-- ms</span></div>
+        <div class="bot-row"><div style="flex:1"><div class="bot-name">Flash Size Multiplier</div></div><span id="adFlashMult" style="font-weight:700;color:var(--accent)">1.0x</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><div class="card-title">Recent Autonomous Decisions</div></div>
+    <div style="overflow-x:auto">
+      <table class="scenario-table">
+        <thead><tr><th>Time</th><th>Type</th><th>Adjustments</th><th>Reason</th></tr></thead>
+        <tbody id="adDecisionBody">
+          <tr><td colspan="4" style="text-align:center;color:var(--text3)">No autonomous decisions yet.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ========== RISK MANAGEMENT (Phase A) ========== -->
+<div class="panel" id="p-risk-mgmt">
+  <div class="page-title">Risk Management</div>
+  <div class="page-desc">Circuit breaker, position sizing, correlation risk, and blacklist management. Set your risk tolerance level.</div>
+
+  <div class="g4" style="margin-bottom:20px">
+    <div class="kpi kpi-accent">
+      <div class="kpi-label">Risk Level</div>
+      <div class="kpi-value" id="rmRiskLevel" style="color:var(--accent);font-size:14px">BALANCED</div>
+    </div>
+    <div class="kpi kpi-purple">
+      <div class="kpi-label">Circuit Breaker</div>
+      <div class="kpi-value" id="rmCircuitBreaker" style="color:var(--green);font-size:14px">ARMED</div>
+    </div>
+    <div class="kpi kpi-orange">
+      <div class="kpi-label">Daily Budget Used</div>
+      <div class="kpi-value" id="rmBudgetUsed" style="color:var(--orange)">$0</div>
+    </div>
+    <div class="kpi kpi-green">
+      <div class="kpi-label">Blacklisted Tokens</div>
+      <div class="kpi-value" id="rmBlacklisted" style="color:var(--text2)">0</div>
+    </div>
+  </div>
+
+  <div class="g2">
+    <div class="card">
+      <div class="card-header"><div class="card-title">Risk Level Control</div></div>
+      <div style="padding:10px 0">
+        <div style="display:flex;gap:8px;margin-bottom:12px">
+          <button class="btn btn-sm" onclick="setRiskLevel('conservative')" id="rmBtnConservative">Conservative</button>
+          <button class="btn btn-sm btn-primary" onclick="setRiskLevel('balanced')" id="rmBtnBalanced">Balanced</button>
+          <button class="btn btn-sm" onclick="setRiskLevel('aggressive')" id="rmBtnAggressive">Aggressive</button>
+        </div>
+        <div style="font-size:11px;color:var(--text3)">Conservative: smaller positions, higher thresholds. Aggressive: larger positions, more trades.</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">Circuit Breaker Status</div></div>
+      <div id="rmCircuitDetail">
+        <div class="bot-row"><div style="flex:1"><div class="bot-name">Consecutive Failures</div></div><span id="rmConsecFail" style="font-weight:700">0</span></div>
+        <div class="bot-row"><div style="flex:1"><div class="bot-name">Hourly Failures</div></div><span id="rmHourlyFail" style="font-weight:700">0</span></div>
+        <div class="bot-row"><div style="flex:1"><div class="bot-name">Total Trips</div></div><span id="rmTotalTrips" style="font-weight:700">0</span></div>
+        <div style="margin-top:8px"><button class="btn btn-sm" onclick="resetCircuitBreaker()">Reset Circuit Breaker</button></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><div class="card-title">Audit Trail (Recent Decisions)</div></div>
+    <div style="overflow-x:auto">
+      <table class="scenario-table">
+        <thead><tr><th>Time</th><th>Type</th><th>Risk Score</th><th>Result</th><th>Details</th></tr></thead>
+        <tbody id="rmAuditBody">
+          <tr><td colspan="5" style="text-align:center;color:var(--text3)">No audit records yet.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ========== BACKTESTING (Phase A) ========== -->
+<div class="panel" id="p-backtesting">
+  <div class="page-title">Backtesting</div>
+  <div class="page-desc">Test strategies against historical data, replay missed opportunities, and run A/B comparisons.</div>
+
+  <div class="g2">
+    <div class="card">
+      <div class="card-header"><div class="card-title">Run Historical Backtest</div></div>
+      <div style="padding:10px 0">
+        <div class="form-row"><label class="lbl">Days Back</label><input type="number" class="inp" id="btDaysBack" value="7" min="1" max="90"></div>
+        <div class="form-row"><label class="lbl">Min Profit (bps)</label><input type="number" class="inp" id="btMinProfit" value="30" min="5" max="200"></div>
+        <div class="form-row"><label class="lbl">Flash Amount ($)</label><input type="number" class="inp" id="btFlashAmount" value="10000" min="100"></div>
+        <button class="btn btn-primary" onclick="runBacktest()" id="btRunBtn">Run Backtest</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">Backtest Results</div></div>
+      <div id="btResults">
+        <div class="alert alert-info" style="margin-bottom:0"><span class="alert-icon">&#128161;</span><div>Run a backtest to see simulated performance results.</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="g2">
+    <div class="card">
+      <div class="card-header"><div class="card-title">Replay Missed Opportunities</div></div>
+      <div style="padding:10px 0">
+        <div class="form-row"><label class="lbl">New Min Profit (bps)</label><input type="number" class="inp" id="btReplayMinProfit" value="20" min="5"></div>
+        <button class="btn btn-primary" onclick="runReplay()" id="btReplayBtn">Run Replay</button>
+        <div id="btReplayResults" style="margin-top:10px;font-size:12px"></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">A/B Test</div></div>
+      <div style="padding:10px 0">
+        <div class="form-row"><label class="lbl">Strategy A — Min Profit</label><input type="number" class="inp" id="btAbMinA" value="30" min="5"></div>
+        <div class="form-row"><label class="lbl">Strategy B — Min Profit</label><input type="number" class="inp" id="btAbMinB" value="50" min="5"></div>
+        <div class="form-row"><label class="lbl">Duration (hours)</label><input type="number" class="inp" id="btAbDuration" value="24" min="1" max="168"></div>
+        <button class="btn btn-primary" onclick="startABTest()" id="btAbStartBtn">Start A/B Test</button>
+        <div id="btAbStatus" style="margin-top:10px;font-size:12px"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== ALERT SETTINGS (Phase A) ========== -->
+<div class="panel" id="p-alerts-config">
+  <div class="page-title">Alert Settings</div>
+  <div class="page-desc">Configure Telegram and Discord notifications. Receive real-time alerts for trades, whale movements, and AI recommendations.</div>
+
+  <div class="g2">
+    <div class="card">
+      <div class="card-header"><div class="card-title">Telegram Bot</div></div>
+      <div style="padding:10px 0">
+        <div class="form-row"><label class="lbl">Bot Token</label><input type="text" class="inp" id="alertTgToken" placeholder="123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11"></div>
+        <div class="form-row"><label class="lbl">Chat ID</label><input type="text" class="inp" id="alertTgChatId" placeholder="-1001234567890"></div>
+        <div class="form-row"><label class="chk-label"><input type="checkbox" id="alertTgEnabled"> Enable Telegram alerts</label></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">Discord Webhook</div></div>
+      <div style="padding:10px 0">
+        <div class="form-row"><label class="lbl">Webhook URL</label><input type="text" class="inp" id="alertDcWebhook" placeholder="https://discord.com/api/webhooks/..."></div>
+        <div class="form-row"><label class="chk-label"><input type="checkbox" id="alertDcEnabled"> Enable Discord alerts</label></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="g2">
+    <div class="card">
+      <div class="card-header"><div class="card-title">Alert Preferences</div></div>
+      <div style="padding:10px 0">
+        <div class="form-row"><label class="lbl">Minimum Priority</label>
+          <select class="inp" id="alertMinPriority"><option value="LOW">LOW (all alerts)</option><option value="MEDIUM" selected>MEDIUM</option><option value="HIGH">HIGH only</option><option value="CRITICAL">CRITICAL only</option></select>
+        </div>
+        <div class="form-row"><label class="chk-label"><input type="checkbox" id="alertQuietHours"> Enable Quiet Hours (23:00 - 07:00 UTC)</label></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">Actions</div></div>
+      <div style="padding:10px 0;display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="saveAlertConfig()">Save Alert Config</button>
+        <button class="btn btn-sm" onclick="sendTestAlert()">Send Test Alert</button>
+      </div>
+      <div id="alertTestResult" style="margin-top:10px;font-size:12px"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== QUIRA SUPPORT ========== -->
+<div class="panel" id="p-quira">
+  <div class="page-title">QUIRA Support</div>
+  <div class="page-desc">AI-powered assistant for QIRA Protocol. Ask questions about setup, strategies, troubleshooting, or DeFi concepts.</div>
+
+  <div class="card quira-card" style="height:calc(100vh - 220px);display:flex;flex-direction:column">
+    <div class="card-header" style="flex-shrink:0;display:flex;align-items:center;justify-content:space-between">
+      <div class="card-title" style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:18px">&#129302;</span> QUIRA — AI Assistant
+      </div>
+      <button class="btn btn-sm" onclick="clearQuiraChat()" style="font-size:11px">Clear Chat</button>
+    </div>
+
+    <div id="quiraMessages" style="flex:1;overflow-y:auto;padding:16px 0;display:flex;flex-direction:column;gap:12px">
+      <!-- Welcome message -->
+      <div class="quira-msg quira-bot">
+        <div class="quira-avatar">Q</div>
+        <div class="quira-bubble">
+          <div class="quira-name">QUIRA</div>
+          <div>Hello! I'm <b>QUIRA</b>, your QIRA Protocol assistant. I can help you with:</div>
+          <ul style="margin:8px 0 0;padding-left:16px;line-height:1.8">
+            <li><b>Setup</b> — wallet, RPC, deployment questions</li>
+            <li><b>Strategies</b> — which to enable, parameter tuning</li>
+            <li><b>Troubleshooting</b> — errors, failed trades, gas issues</li>
+            <li><b>DeFi Concepts</b> — flash loans, MEV, liquidity, slippage</li>
+            <li><b>AI Features</b> — risk engine, backtesting, alerts, advisories</li>
+          </ul>
+          <div style="margin-top:8px">Type your question below to get started!</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="flex-shrink:0;display:flex;gap:8px;padding-top:12px;border-top:1px solid var(--border)">
+      <input type="text" class="inp" id="quiraInput" placeholder="Ask QUIRA anything about QIRA Protocol..." style="flex:1" onkeydown="if(event.key==='Enter')sendQuiraMessage()">
+      <button class="btn btn-primary" onclick="sendQuiraMessage()" style="white-space:nowrap;padding:9px 20px">Send</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== PROFILE ========== -->
+<div class="panel" id="p-profile">
+  <div class="page-title">Profile & Security</div>
+  <div class="page-desc">Manage your account, security settings, and connected wallet.</div>
+
+  <!-- Account Overview -->
+  <div class="card" style="border-left:3px solid var(--accent)">
+    <div class="card-header"><div class="card-title">&#128100; Account Overview</div></div>
+    <div class="g2" style="gap:20px">
+      <div>
+        <div class="fl" style="margin-bottom:8px">Connected Wallet</div>
+        <div style="font-size:12px;font-weight:600;color:var(--accent);word-break:break-all;font-family:'SF Mono',Monaco,monospace" id="profWallet">—</div>
+      </div>
+      <div>
+        <div class="fl" style="margin-bottom:8px">Security Level</div>
+        <div id="profSecLevel" style="font-size:14px;font-weight:700">
+          <span class="badge badge-yellow">Basic</span>
+        </div>
+      </div>
+    </div>
+    <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-danger btn-sm" onclick="doLogout()">&#9211; Disconnect & Sign Out</button>
+    </div>
+  </div>
+
+  <div class="g2">
+    <!-- Two-Factor Authentication -->
+    <div class="card">
+      <div class="card-header"><div class="card-title">&#128241; Two-Factor Authentication (2FA)</div></div>
+      <div id="totpSection">
+        <div id="totpOff">
+          <div class="alert alert-warn"><span class="alert-icon">&#9888;</span><div>2FA is <b>not enabled</b>. Strongly recommended to protect your account.</div></div>
+          <p style="font-size:11px;color:var(--text2);margin-bottom:12px;line-height:1.7">Add a second layer of security. After connecting wallet, you'll need to enter a 6-digit code from your authenticator app. Compatible with Google Authenticator, Authy, 1Password, and others.</p>
+          <button class="btn btn-primary btn-sm" onclick="setupTotp()">Enable 2FA</button>
+        </div>
+        <div id="totpSetup" style="display:none">
+          <p style="font-size:12px;color:var(--text2);margin-bottom:12px">Scan this QR code with your authenticator app:</p>
+          <div style="text-align:center;margin:16px 0;background:var(--bg3);border-radius:12px;padding:20px;display:inline-block;width:100%"><img id="totpQR" style="max-width:200px;border-radius:8px"></div>
+          <div id="totpManualKey" style="font-size:10px;color:var(--text3);text-align:center;margin-bottom:12px">Manual key: <code id="totpSecretDisplay" style="color:var(--accent);user-select:all"></code></div>
+          <div class="fg"><label class="fl">Enter 6-digit verification code</label><input type="text" id="totpVerifyCode" class="totp-input" placeholder="000000" maxlength="6"></div>
+          <button class="btn btn-primary btn-sm" onclick="verifyTotp()">Verify & Enable</button>
+          <button class="btn btn-ghost btn-sm" style="margin-left:6px" onclick="$('totpSetup').style.display='none';$('totpOff').style.display='block'">Cancel</button>
+          <div id="totpSetupStatus" class="login-status" style="text-align:left"></div>
+        </div>
+        <div id="totpOn" style="display:none">
+          <div class="alert alert-success"><span class="alert-icon">&#128737;</span><div>2FA is <b>active</b>. Your account has enhanced protection.</div></div>
+          <hr class="divider">
+          <p style="font-size:11px;color:var(--text2);margin-bottom:10px">To disable 2FA, enter a valid code from your authenticator app:</p>
+          <div class="fg"><label class="fl">TOTP Code</label><input type="text" id="totpDisableCode" class="totp-input" placeholder="000000" maxlength="6"></div>
+          <button class="btn btn-danger btn-sm" onclick="disableTotp()">Disable 2FA</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Security Checklist -->
+    <div class="card">
+      <div class="card-header"><div class="card-title">&#128737; Security Checklist</div></div>
+      <div style="font-size:12px;line-height:2.2">
+        <div id="chkWallet" style="color:var(--green)">&#9989; Web3 Wallet — Connected</div>
+        <div id="chk2fa" style="color:var(--red)">&#10060; 2FA (TOTP) — Not enabled</div>
+      </div>
+      <hr class="divider">
+      <div style="font-size:11px;color:var(--text2);line-height:1.7">
+        <b style="color:var(--text)">How it works:</b><br>
+        &#8226; <b>Wallet signature</b> — proves ownership of your address (layer 1)<br>
+        &#8226; <b>2FA (TOTP)</b> — time-based code from authenticator app (layer 2)<br>
+        &#8226; Both layers are verified on every login for maximum security<br>
+        &#8226; Never share your private key or TOTP secret
+      </div>
+    </div>
+  </div>
+
+  <!-- Session Info -->
+  <div class="card">
+    <div class="card-header"><div class="card-title">&#128336; Session Info</div></div>
+    <div style="font-size:12px;color:var(--text2);line-height:1.8">
+      <div><b>Login method:</b> <span id="profLoginMethod">Web3 Wallet</span></div>
+      <div><b>Session expires:</b> <span id="profSessionExp">—</span></div>
+      <div><b>Last activity:</b> <span id="profLastActivity">Just now</span></div>
+    </div>
+  </div>
+</div>
+
 </div><!-- /main -->
 </div><!-- /app -->
 
 <script>
 const $=id=>document.getElementById(id);
-const socket=io();
+const socket=io({auth:{token:localStorage.getItem('qira-token')||''}});
 let currentFilter='';
+
+// ===== AUTH SYSTEM =====
+let authToken = localStorage.getItem('qira-token') || null;
+
+async function checkAuth() {
+  try {
+    const res = await fetch('/api/auth/status');
+    const data = await res.json();
+
+    if (!data.setupComplete) {
+      // First-time setup — show registration
+      showLogin('register');
+      return;
+    }
+
+    if (authToken) {
+      // Validate existing token
+      const test = await fetch('/api/state', { headers: { 'Authorization': 'Bearer ' + authToken } });
+      if (test.ok) {
+        showApp();
+        return;
+      }
+      // Token expired
+      authToken = null;
+      localStorage.removeItem('qira-token');
+    }
+
+    showLogin('login');
+  } catch (err) {
+    showLogin('login');
+  }
+}
+
+function showLogin(mode) {
+  $('loginScreen').style.display = 'flex';
+  $('mainApp').style.display = 'none';
+}
+
+function showApp() {
+  $('loginScreen').style.display = 'none';
+  $('mainApp').style.display = 'grid';
+  loadState();
+}
+
+
+// Web3 MetaMask Connect
+async function connectMetaMask() {
+  const status = $('walletStatus');
+  if (!window.ethereum) {
+    status.className = 'login-status error';
+    status.textContent = 'MetaMask not detected. Install MetaMask extension.';
+    return;
+  }
+
+  try {
+    status.className = 'login-status'; status.textContent = 'Connecting...';
+    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+    const address = accounts[0];
+
+    $('walletAddr').textContent = address;
+    $('walletConnected').style.display = 'block';
+    $('walletConnected').dataset.address = address;
+    status.className = 'login-status success';
+    status.textContent = 'Wallet connected!';
+  } catch (err) {
+    status.className = 'login-status error';
+    status.textContent = err.message || 'Connection rejected';
+  }
+}
+
+function connectWalletConnect() {
+  $('walletStatus').className = 'login-status';
+  $('walletStatus').textContent = 'WalletConnect integration coming soon.';
+}
+
+async function signWalletLogin() {
+  const status = $('walletStatus');
+  const address = $('walletConnected').dataset.address;
+  if (!address || !window.ethereum) return;
+
+  const totpCode = $('loginTotp')?.value?.trim() || '';
+  const message = `QIRA Protocol Login\nAddress: ${address}\nTimestamp: ${Date.now()}`;
+
+  try {
+    status.className = 'login-status'; status.textContent = 'Please sign the message in MetaMask...';
+    const signature = await window.ethereum.request({
+      method: 'personal_sign',
+      params: [message, address]
+    });
+
+    status.textContent = 'Verifying...';
+    const res = await fetch('/api/auth/wallet-login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ address, signature, message, totpCode })
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      authToken = data.token;
+      localStorage.setItem('qira-token', authToken);
+      socket.disconnect();
+      socket.auth = { token: authToken };
+      socket.connect();
+      status.className = 'login-status success';
+      status.textContent = 'Signed in with wallet!';
+      setTimeout(showApp, 300);
+    } else if (data.totpRequired) {
+      // Show TOTP input
+      $('loginTotpSection').style.display = 'block';
+      status.className = 'login-status';
+      status.textContent = 'Enter your 2FA authenticator code';
+      $('loginTotp').focus();
+    } else {
+      status.className = 'login-status error';
+      status.textContent = data.error || 'Wallet login failed';
+    }
+  } catch (err) {
+    status.className = 'login-status error';
+    status.textContent = err.code === 4001 ? 'Signature rejected' : (err.message || 'Sign failed');
+  }
+}
+
+function doLogout() {
+  authToken = null;
+  localStorage.removeItem('qira-token');
+  showLogin('login');
+}
+
+// Security page functions
+async function setupTotp() {
+  const data = await apiCall('auth/totp/setup', 'POST');
+  if (data && data.success) {
+    $('totpQR').src = data.qrCode;
+    if ($('totpSecretDisplay')) $('totpSecretDisplay').textContent = data.secret || '';
+    $('totpOff').style.display = 'none';
+    $('totpSetup').style.display = 'block';
+  } else {
+    alert('TOTP setup error: ' + (data?.error || 'Unknown error. Check console.'));
+    console.error('setupTotp response:', data);
+  }
+}
+
+async function verifyTotp() {
+  const code = $('totpVerifyCode').value.trim();
+  const status = $('totpSetupStatus');
+  const data = await apiCall('auth/totp/verify', 'POST', { code });
+  if (data && data.success) {
+    $('totpSetup').style.display = 'none';
+    $('totpOn').style.display = 'block';
+    status.className = 'login-status success'; status.textContent = '2FA enabled!';
+    // Update checklist
+    $('chk2fa').style.color = 'var(--green)';
+    $('chk2fa').innerHTML = '&#9989; 2FA (TOTP) — Enabled';
+    $('profSecLevel').innerHTML = '<span class="badge badge-green">Strong &#128737;</span>';
+  } else {
+    status.className = 'login-status error'; status.textContent = data?.error || 'Error';
+  }
+}
+
+async function disableTotp() {
+  const code = $('totpDisableCode').value.trim();
+  const data = await apiCall('auth/totp/disable', 'POST', { code });
+  if (data && data.success) {
+    $('totpOn').style.display = 'none';
+    $('totpOff').style.display = 'block';
+    // Update checklist
+    $('chk2fa').style.color = 'var(--red)';
+    $('chk2fa').innerHTML = '&#10060; 2FA (TOTP) — Not enabled';
+    $('profSecLevel').innerHTML = '<span class="badge badge-yellow">Basic — Enable 2FA for full protection</span>';
+  }
+}
+
+async function linkWallet() {
+  if (!window.ethereum) { $('walletLinkStatus').className = 'login-status error'; $('walletLinkStatus').textContent = 'MetaMask not detected'; return; }
+  try {
+    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+    const address = accounts[0];
+    const message = `Link wallet to QIRA Protocol\nAddress: ${address}\nTimestamp: ${Date.now()}`;
+    const signature = await window.ethereum.request({ method: 'personal_sign', params: [message, address] });
+    const res = await fetch('/api/auth/link-wallet', { method: 'POST', headers: { 'Authorization': 'Bearer ' + authToken, 'Content-Type': 'application/json' }, body: JSON.stringify({ address, signature, message }) });
+    const data = await res.json();
+    if (data.success) {
+      $('walletNotLinked').style.display = 'none';
+      $('walletLinked').style.display = 'block';
+      $('secLinkedWallet').textContent = data.address;
+      $('secWallet').textContent = data.address;
+      $('walletLinkStatus').className = 'login-status success'; $('walletLinkStatus').textContent = 'Wallet linked!';
+    }
+  } catch (err) {
+    $('walletLinkStatus').className = 'login-status error'; $('walletLinkStatus').textContent = err.message || 'Failed';
+  }
+}
+
+async function changePassword() {
+  const cur = $('secCurPass').value;
+  const newP = $('secNewPass').value;
+  const status = $('secPassStatus');
+  try {
+    const res = await fetch('/api/auth/change-password', { method: 'POST', headers: { 'Authorization': 'Bearer ' + authToken, 'Content-Type': 'application/json' }, body: JSON.stringify({ currentPassword: cur, newPassword: newP }) });
+    const data = await res.json();
+    status.className = data.success ? 'login-status success' : 'login-status error';
+    status.textContent = data.message || data.error;
+    if (data.success) { $('secCurPass').value = ''; $('secNewPass').value = ''; }
+  } catch (_) { status.className = 'login-status error'; status.textContent = 'Error'; }
+}
+
+// Load profile page data from server
+async function loadProfile() {
+  try {
+    const res = await fetch('/api/auth/me', { headers: { 'Authorization': 'Bearer ' + authToken } });
+    const data = await res.json();
+    if (!data.success) return;
+
+    // Account overview — wallet address
+    $('profWallet').textContent = data.walletAddress || 'Not connected';
+
+    // Security level: wallet (always) + 2FA
+    const has2fa = !!data.totpEnabled;
+    $('profSecLevel').innerHTML = has2fa
+      ? '<span class="badge badge-green">Strong &#128737;</span>'
+      : '<span class="badge badge-yellow">Basic — Enable 2FA for full protection</span>';
+
+    // TOTP section
+    if (has2fa) {
+      $('totpOff').style.display = 'none';
+      $('totpSetup').style.display = 'none';
+      $('totpOn').style.display = 'block';
+    } else {
+      $('totpOff').style.display = 'block';
+      $('totpSetup').style.display = 'none';
+      $('totpOn').style.display = 'none';
+    }
+
+    // Security checklist
+    $('chkWallet').style.color = 'var(--green)';
+    $('chkWallet').innerHTML = '&#9989; Web3 Wallet — Connected';
+
+    if (has2fa) {
+      $('chk2fa').style.color = 'var(--green)';
+      $('chk2fa').innerHTML = '&#9989; 2FA (TOTP) — Enabled';
+    } else {
+      $('chk2fa').style.color = 'var(--red)';
+      $('chk2fa').innerHTML = '&#10060; 2FA (TOTP) — Not enabled';
+    }
+
+    // Session info
+    try {
+      const payload = JSON.parse(atob(authToken.split('.')[1]));
+      $('profLoginMethod').textContent = 'Web3 Wallet';
+      if (payload.exp) {
+        $('profSessionExp').textContent = new Date(payload.exp * 1000).toLocaleString();
+      }
+    } catch (_) {}
+
+  } catch (err) {
+    console.error('Profile load error:', err);
+  }
+}
+
+// Init auth check on load
+checkAuth();
 let state={};
 
 // ===== NAVIGATION =====
@@ -1487,7 +2483,26 @@ function updateSetupLabels(){
   const sel=$('setupChainSelect');
   if(sel)sel.value=chain;
   _applySetupChain(chain);
+  // Auto-fill connected wallet address from JWT
+  try{
+    const payload=JSON.parse(atob(authToken.split('.')[1]));
+    if(payload.wallet&&$('setupWalletAddr')){
+      $('setupWalletAddr').textContent=payload.wallet;
+    }
+  }catch(_){}
 }
+
+const _rpcGuides={
+  arbitrum:{example:'https://arb-mainnet.g.alchemy.com/v2/YOUR_API_KEY',providers:['Alchemy','Infura','QuickNode'],docs:'https://docs.arbitrum.io/build-decentralized-apps/reference/node-providers'},
+  arbitrumSepolia:{example:'https://arb-sepolia.g.alchemy.com/v2/YOUR_API_KEY',providers:['Alchemy','Infura'],docs:'https://docs.arbitrum.io/build-decentralized-apps/reference/node-providers'},
+  base:{example:'https://base-mainnet.g.alchemy.com/v2/YOUR_API_KEY',providers:['Alchemy','QuickNode','Infura'],docs:'https://docs.base.org/docs/tools/node-providers'},
+  baseSepolia:{example:'https://base-sepolia.g.alchemy.com/v2/YOUR_API_KEY',providers:['Alchemy'],docs:'https://docs.base.org/docs/tools/node-providers'},
+  polygon:{example:'https://polygon-mainnet.g.alchemy.com/v2/YOUR_API_KEY',providers:['Alchemy','Infura','QuickNode'],docs:'https://wiki.polygon.technology/docs/tools/node-providers'},
+  bsc:{example:'https://bsc-dataseed1.binance.org',providers:['Public RPC','QuickNode','Ankr'],docs:'https://docs.bnbchain.org/docs/rpc'},
+  avalanche:{example:'https://api.avax.network/ext/bc/C/rpc',providers:['Public RPC','Infura','QuickNode'],docs:'https://docs.avax.network/tooling/rpc-providers'},
+  mantle:{example:'https://rpc.mantle.xyz',providers:['Public RPC','Ankr'],docs:'https://docs.mantle.xyz/network/for-devs/rpc-endpoints'},
+  scroll:{example:'https://rpc.scroll.io',providers:['Public RPC','Ankr'],docs:'https://docs.scroll.io/en/developers/developer-quickstart/'},
+};
 
 function _applySetupChain(chain){
   const el1=$('rpcChainLabel');
@@ -1499,6 +2514,31 @@ function _applySetupChain(chain){
   // Show gas token and flash provider info
   const el4=$('setupChainInfo');
   if(el4)el4.innerHTML='Gas token: <b>'+(_gasTokens[chain]||'ETH')+'</b> &nbsp;|&nbsp; Flash Loan: <b>'+(_flashProviders[chain]||'Aave V3')+'</b>';
+  // Update RPC guide
+  const guide=_rpcGuides[chain]||_rpcGuides.arbitrum;
+  const guideEx=$('rpcGuideExample');
+  if(guideEx)guideEx.textContent=guide.example;
+  const guideBox=$('rpcGuideContent');
+  if(guideBox){
+    const providerLinks={
+      'Alchemy':'https://www.alchemy.com/','Infura':'https://www.infura.io/','QuickNode':'https://www.quicknode.com/',
+      'Ankr':'https://www.ankr.com/rpc/','Public RPC':guide.docs||'#'
+    };
+    const providerIcons={'Alchemy':'&#9889;','Infura':'&#128293;','QuickNode':'&#128640;','Ankr':'&#9875;','Public RPC':'&#127760;'};
+    let html='<div style="color:var(--text2);margin-bottom:8px">Get an RPC endpoint for <b>'+(_chainNames[chain]||chain)+'</b>:</div>';
+    guide.providers.forEach(p=>{
+      html+='<div style="margin-bottom:4px">'+(providerIcons[p]||'&#128279;')+' <a href="'+(providerLinks[p]||'#')+'" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:underline;font-weight:600">'+p+'</a>';
+      if(p==='Public RPC')html+=' — Free, no signup needed';
+      else if(p==='Alchemy')html+=' — Recommended, free tier available';
+      else html+=' — Free tier available';
+      html+='</div>';
+    });
+    if(guide.docs){
+      html+='<div style="margin-top:6px;font-size:11px"><a href="'+guide.docs+'" target="_blank" rel="noopener" style="color:var(--text3);text-decoration:underline">&#128214; Official docs &rarr;</a></div>';
+    }
+    html+='<div style="margin-top:8px;padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-family:\'SF Mono\',Monaco,monospace;font-size:11px;color:var(--text3);word-break:break-all" id="rpcGuideExample">'+guide.example+'</div>';
+    guideBox.innerHTML=html;
+  }
 }
 
 async function onSetupChainChange(){
@@ -1542,6 +2582,16 @@ function renderContractsTable(){
   $('inContract').value=addrs[currentChain]||'';
 }
 
+// ===== MOBILE SIDEBAR TOGGLE =====
+function toggleSidebar(){
+  const side=$('sideNav');
+  const overlay=$('sideOverlay');
+  if(!side)return;
+  side.classList.toggle('open');
+  if(overlay)overlay.classList.toggle('active');
+  document.body.style.overflow=side.classList.contains('open')?'hidden':'';
+}
+
 function navigate(name){
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.sb-btn').forEach(b=>b.classList.remove('active'));
@@ -1558,14 +2608,26 @@ function navigate(name){
   if(name==='simulated')loadSimTrades(1);
   // Update setup labels when navigating to setup
   if(name==='setup')updateSetupLabels();
+  // Load profile data when navigating to profile
+  if(name==='profile')loadProfile();
+  // Close sidebar on mobile after navigation
+  const side=$('sideNav');
+  if(side&&side.classList.contains('open'))toggleSidebar();
+  // Scroll main content to top
+  const mainEl=document.querySelector('.main');
+  if(mainEl)mainEl.scrollTop=0;
 }
 
 // ===== API =====
 async function apiCall(endpoint,method='GET',body=null){
   const opts={method,headers:{'Content-Type':'application/json'}};
+  if(authToken)opts.headers['Authorization']='Bearer '+authToken;
   if(body)opts.body=JSON.stringify(body);
-  try{const res=await fetch('/api/'+endpoint,opts);return await res.json();}
-  catch(e){console.error('API error:',e);return{error:e.message};}
+  try{
+    const res=await fetch('/api/'+endpoint,opts);
+    if(res.status===401){doLogout();return{error:'Session expired'};}
+    return await res.json();
+  }catch(e){console.error('API error:',e);return{error:e.message};}
 }
 
 // ===== STATE =====
@@ -1580,7 +2642,7 @@ function updateUI(){
 
   // Dashboard alerts
   let alerts='';
-  if(!c.privateKeySet)alerts+='<div class="alert alert-danger"><span class="alert-icon">&#9888;</span><div><strong>Private Key not configured.</strong> Go to Setup to enter your wallet credentials.</div></div>';
+  if(!c.privateKeySet)alerts+='<div class="alert alert-danger"><span class="alert-icon">&#9888;</span><div><strong>Private Key not configured.</strong> Go to Setup to enter your bot wallet\'s private key for automated trading.</div></div>';
   else if(!c.rpcUrlSet)alerts+='<div class="alert alert-warn"><span class="alert-icon">&#9888;</span><div><strong>RPC URL not configured.</strong> You need an Alchemy or Infura endpoint to connect to the blockchain.</div></div>';
   else alerts+='<div class="alert alert-success"><span class="alert-icon">&#10003;</span><div><strong>System ready.</strong> Credentials configured. You can deploy contracts and start bots.</div></div>';
   $('dashAlerts').innerHTML=alerts;
@@ -1912,7 +2974,7 @@ function addLogLine(entry){
   if(currentFilter&&entry.source!==currentFilter)return;
   const cls='log-'+(entry.type||'info');
   const time=new Date(entry.time).toLocaleTimeString();
-  area.innerHTML+='<div class="'+cls+'"><span class="log-time">['+time+']</span><span class="log-source">['+entry.source+']</span> '+entry.message+'</div>';
+  area.innerHTML+='<div class="'+cls+'"><span class="log-time">['+time+']</span><span class="log-source">['+escapeHtml(entry.source)+']</span> '+escapeHtml(entry.message)+'</div>';
   area.scrollTop=area.scrollHeight;
 }
 function filterLogs(source,btn){
@@ -2085,7 +3147,7 @@ function updateAIStatus(ai){
         const act=a.recommendation?a.recommendation.action:'--';
         const actColor=act==='EXECUTE'?'var(--green)':act==='SKIP'?'var(--red)':'var(--yellow)';
         const reason=a.reasoning||'--';
-        return '<tr><td style="white-space:nowrap">'+time+'</td><td><span style="font-weight:800;color:'+(score>=75?'var(--green)':score>=50?'var(--yellow)':'var(--red)')+'">'+score+'</span></td><td><span style="font-weight:700;color:'+actColor+'">'+act+'</span></td><td style="font-size:11px;color:var(--text2)">'+reason+'</td></tr>';
+        return '<tr><td style="white-space:nowrap">'+time+'</td><td><span style="font-weight:800;color:'+(score>=75?'var(--green)':score>=50?'var(--yellow)':'var(--red)')+'">'+score+'</span></td><td><span style="font-weight:700;color:'+actColor+'">'+escapeHtml(act)+'</span></td><td style="font-size:11px;color:var(--text2)">'+escapeHtml(reason)+'</td></tr>';
       }).join('');
     }
   }
@@ -2228,16 +3290,16 @@ function renderTradeTable(trades,total,page,totalPages){
     const profitColor=t.profitUsd>=0?'var(--green)':'var(--red)';
     const paperBadge=t.paper?'<span class="badge badge-yellow" style="margin-right:4px">PAPER</span>':'';
     const statusBadge=t.success?paperBadge+'<span class="badge badge-green">Success</span>':paperBadge+'<span class="badge badge-red">Failed</span>';
-    const txLink=t.txHash&&!t.txHash.startsWith('paper-')?'<a href="'+getExplorerUrl(t.chain,t.txHash)+'" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none;font-family:monospace;font-size:11px" title="'+t.txHash+'">'+truncHash(t.txHash)+'</a>':(t.paper?'<span style="color:var(--yellow);font-size:10px">simulated</span>':'--');
+    const txLink=t.txHash&&!t.txHash.startsWith('paper-')?'<a href="'+getExplorerUrl(t.chain,t.txHash)+'" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none;font-family:monospace;font-size:11px" title="'+escapeHtml(t.txHash)+'">'+truncHash(t.txHash)+'</a>':(t.paper?'<span style="color:var(--yellow);font-size:10px">simulated</span>':'--');
     const stratColor=stratColors[t.strategy]||'var(--text2)';
 
     return '<tr>'+
       '<td style="color:var(--text3)">'+(startNum+i+1)+'</td>'+
       '<td style="white-space:nowrap;font-size:11px">'+fmtDate(t.timestamp)+'</td>'+
-      '<td><span style="color:'+stratColor+';font-weight:600;font-size:11px">'+(stratLabels[t.strategy]||t.strategy)+'</span></td>'+
-      '<td style="font-size:11px">'+(t.chain||'--')+'</td>'+
-      '<td style="font-weight:600">'+(t.pair||'--')+'</td>'+
-      '<td><span class="badge '+(t.type==='TRIANGULAR'?'badge-purple':'badge-blue')+'">'+(t.type||'--')+'</span></td>'+
+      '<td><span style="color:'+stratColor+';font-weight:600;font-size:11px">'+escapeHtml(stratLabels[t.strategy]||t.strategy)+'</span></td>'+
+      '<td style="font-size:11px">'+escapeHtml(t.chain||'--')+'</td>'+
+      '<td style="font-weight:600">'+escapeHtml(t.pair||'--')+'</td>'+
+      '<td><span class="badge '+(t.type==='TRIANGULAR'?'badge-purple':'badge-blue')+'">'+escapeHtml(t.type||'--')+'</span></td>'+
       '<td class="right">'+fmtUsd(t.volumeUsd)+'</td>'+
       '<td class="right">'+(t.buyPrice?'$'+t.buyPrice.toFixed(2):'--')+'</td>'+
       '<td class="right">'+(t.sellPrice?'$'+t.sellPrice.toFixed(2):'--')+'</td>'+
@@ -2357,10 +3419,10 @@ function renderSimTable(trades,total,page,totalPages){
     return '<tr>'+
       '<td style="color:var(--text3)">'+(startNum+i+1)+'</td>'+
       '<td style="white-space:nowrap;font-size:11px">'+fmtDate(t.timestamp)+'</td>'+
-      '<td><span style="color:'+stratColor+';font-weight:600;font-size:11px">'+(stratLabels[t.strategy]||t.strategy)+'</span></td>'+
-      '<td style="font-size:11px">'+(t.chain||'--')+'</td>'+
-      '<td style="font-weight:600">'+(t.pair||'--')+'</td>'+
-      '<td style="font-size:11px;color:var(--text2)">'+(dexRoute||'--')+'</td>'+
+      '<td><span style="color:'+stratColor+';font-weight:600;font-size:11px">'+escapeHtml(stratLabels[t.strategy]||t.strategy)+'</span></td>'+
+      '<td style="font-size:11px">'+escapeHtml(t.chain||'--')+'</td>'+
+      '<td style="font-weight:600">'+escapeHtml(t.pair||'--')+'</td>'+
+      '<td style="font-size:11px;color:var(--text2)">'+escapeHtml(dexRoute||'--')+'</td>'+
       '<td class="right">'+fmtUsd(t.volumeUsd)+'</td>'+
       '<td class="right">'+(t.buyPrice?'$'+t.buyPrice.toFixed(2):'--')+'</td>'+
       '<td class="right">'+(t.sellPrice?'$'+t.sellPrice.toFixed(2):'--')+'</td>'+
@@ -2421,8 +3483,392 @@ socket.on('newTrade',(trade)=>{
   }
 });
 
+// ===== QUIRA SUPPORT (AI Chat) =====
+const QUIRA_KB = {
+  setup: `To set up QIRA Protocol:\n1. Go to Setup & Credentials page\n2. Select your target chain (Arbitrum, Base, BSC, etc.)\n3. Enter your Private Key (stored securely in .env)\n4. Enter your RPC URL (get from Alchemy, Infura, or public RPCs)\n5. Click "Save Credentials"\n6. Compile the smart contract\n7. Deploy to your chosen chain\n8. The contract address will be saved automatically`,
+  'paper trading': `Paper Trading mode simulates trades without executing on-chain transactions. It uses real DEX price quotes but doesn't actually swap tokens.\n\nTo enable: Go to Trading Config → set "Auto Execute" to OFF\nTo disable: Set "Auto Execute" to ON (this enables LIVE trading with real funds)\n\nAlways run in Paper Trading mode for at least 24-48 hours before going live.`,
+  'flash loan': `A flash loan is an uncollateralized loan that must be borrowed and repaid within a single blockchain transaction. If the loan isn't repaid, the entire transaction reverts as if nothing happened.\n\nQIRA Protocol uses:\n- Aave V3 flash loans on Arbitrum, Base, Polygon, Avalanche, Scroll\n- PancakeSwap V3 flash loans on BSC\n- Lendle (Aave fork) on Mantle\n\nFlash loan fee: ~0.05% of borrowed amount`,
+  arbitrage: `Arbitrage exploits price differences of the same token across different DEXs.\n\nSimple Arbitrage: Buy on DEX A (cheaper) → Sell on DEX B (more expensive)\nTriangular: Token A → B → C → A across different pools\n\nThe bot scans all configured DEXs every 3 seconds, compares prices, and executes when profit exceeds the minimum threshold (after gas costs and flash loan fees).`,
+  gas: `Gas optimization tips:\n- Set Max Gas Gwei in Trading Config to avoid overpaying\n- The AI Gas Predictor samples every 3 seconds and recommends best execution timing\n- Arbitrum/Base have very low gas (~0.01-0.1 Gwei)\n- BSC uses legacy gas (gasPrice, not EIP-1559)\n- The Autonomous Manager auto-raises min profit when gas is high`,
+  risk: `Risk Management features:\n- Circuit Breaker: Auto-stops after consecutive failures or gas spikes\n- Position Sizer: Limits flash amount based on pool liquidity\n- Blacklist Detector: Auto-blocks honeypot and scam tokens\n- Correlation Risk: Prevents over-concentration in one token/pool\n- Daily Loss Limit: Stops trading if cumulative losses exceed threshold\n\nSet your risk level in Risk Management: Conservative, Balanced, or Aggressive`,
+  strategies: `Available Strategies:\n1. DEX Arbitrage — Price differences between DEXs (most common)\n2. Triangular — 3-token cycling (A→B→C→A)\n3. Liquidation — Monitor undercollateralized positions\n4. Stablecoin — Depeg arbitrage (USDC/USDT/DAI)\n5. New Pool — Catch mispricing on new liquidity pools\n6. Oracle Lag — Exploit delayed oracle price updates\n7. Yield Rebalance — Move capital between yield protocols`,
+  backtesting: `Backtesting features:\n- Historical Backtest: Simulate strategy on past data (7-90 days)\n- Replay: Re-analyze missed opportunities with different parameters\n- A/B Testing: Run two strategies side-by-side in Paper Trading\n- Parameter Sweep: Find optimal minProfitBps automatically\n\nGo to the Backtesting tab to run tests.`,
+  alerts: `Alert System:\n- Telegram: Enter Bot Token + Chat ID in Alert Settings\n- Discord: Enter Webhook URL\n- Both can be enabled simultaneously\n- Priority levels: CRITICAL, HIGH, MEDIUM, LOW\n- Quiet Hours: Suppress non-critical alerts at night\n- Rate limiting: Same alert type max once per 5 minutes`,
+  error: `Common errors and fixes:\n- "No wallet configured" → Go to Setup, enter Private Key\n- "Pool not found" → Token pair doesn't have a pool on that DEX\n- "Insufficient funds to repay" → Profit wasn't enough to cover flash loan fee\n- "Contract is paused" → Owner paused the contract (check etherscan)\n- "Gas estimation failed" → Trade would revert, bot skips automatically\n- RPC errors → Check your RPC URL in Setup, try a different provider`,
+  mev: `MEV (Maximal Extractable Value):\nMEV bots can front-run your transactions by observing the mempool.\n\nQIRA Protocol protections:\n- Sandwich Detector: Scores risk 0-100, blocks high-risk trades\n- Slippage protection: amountOutMin on every swap step\n- Flash loan atomicity: Transaction reverts if unprofitable\n\nPhase C will add Flashbots integration for private transaction submission.`,
+};
+
+function sendQuiraMessage() {
+  const input = $('quiraInput');
+  if (!input) return;
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+
+  const container = $('quiraMessages');
+  if (!container) return;
+
+  // Add user message
+  container.innerHTML += `<div class="quira-msg quira-user"><div class="quira-avatar">U</div><div class="quira-bubble"><div class="quira-name">You</div>${escapeHtml(text)}</div></div>`;
+
+  // Show typing indicator
+  const typingId = 'quira-typing-' + Date.now();
+  container.innerHTML += `<div class="quira-msg quira-bot" id="${typingId}"><div class="quira-avatar">Q</div><div class="quira-bubble"><div class="quira-typing"><span></span><span></span><span></span></div></div></div>`;
+  container.scrollTop = container.scrollHeight;
+
+  // Generate response (with small delay for natural feel)
+  setTimeout(() => {
+    const typingEl = document.getElementById(typingId);
+    if (typingEl) typingEl.remove();
+
+    const response = generateQuiraResponse(text);
+    container.innerHTML += `<div class="quira-msg quira-bot"><div class="quira-avatar">Q</div><div class="quira-bubble"><div class="quira-name">QUIRA</div>${response}</div></div>`;
+    container.scrollTop = container.scrollHeight;
+  }, 600 + Math.random() * 800);
+}
+
+function generateQuiraResponse(question) {
+  const q = question.toLowerCase();
+
+  // Match against knowledge base
+  for (const [key, answer] of Object.entries(QUIRA_KB)) {
+    if (q.includes(key)) {
+      return answer.replace(/\n/g, '<br>');
+    }
+  }
+
+  // Contextual pattern matching
+  if (q.includes('deploy') || q.includes('contract')) {
+    return 'To deploy your contract:<br>1. Go to <b>Setup & Credentials</b><br>2. Make sure your wallet has gas tokens (ETH/BNB/MATIC)<br>3. Click <b>Compile</b> to build the smart contract<br>4. Click <b>Deploy</b> to deploy to your selected chain<br>5. The contract address is saved automatically<br><br>You can verify the contract on the block explorer afterward.';
+  }
+  if (q.includes('profit') || q.includes('money') || q.includes('earn')) {
+    return 'Profitability depends on many factors:<br>- <b>Market volatility</b>: More volatility = more opportunities<br>- <b>Chain selection</b>: Higher TVL chains have more liquidity<br>- <b>Gas costs</b>: Lower gas = lower profit threshold needed<br>- <b>Competition</b>: Other bots compete for the same opportunities<br>- <b>Parameters</b>: minProfitBps, slippage, flash amount<br><br>Use <b>Backtesting</b> to estimate potential returns before risking real capital. Start with Paper Trading!';
+  }
+  if (q.includes('chain') || q.includes('network') || q.includes('which')) {
+    return 'Chain recommendations:<br>- <b>Arbitrum</b>: Best for beginners — low gas, high liquidity, many DEXs<br>- <b>Base</b>: Growing fast, low competition<br>- <b>BSC</b>: Highest volume, uses PancakeSwap V3 flash loans<br>- <b>Polygon</b>: Very low gas but lower TVL<br>- <b>Avalanche</b>: Good opportunities with TraderJoe<br><br>Start with <b>Arbitrum Sepolia</b> (testnet) for testing!';
+  }
+  if (q.includes('stop') || q.includes('pause') || q.includes('emergency')) {
+    return 'To stop the bot:<br>- Go to <b>Bot Control</b> → click <b>Stop</b><br>- Or click <b>Stop All</b> to stop everything<br><br>Emergency features:<br>- <b>Circuit Breaker</b>: Auto-stops after consecutive failures<br>- <b>Daily Loss Limit</b>: Pauses when losses exceed threshold<br>- <b>Contract Pause</b>: Call setPaused(true) on the smart contract<br>- <b>Withdraw</b>: Call withdrawProfit() to pull all tokens from contract';
+  }
+  if (q.includes('whale') || q.includes('smart money')) {
+    return 'Whale Tracking features:<br>- Monitors large transactions (>10 ETH) in real-time<br>- Tracks labeled wallets (exchanges, market makers, funds)<br>- Detects accumulation/distribution patterns<br>- Alerts: NONE → LOW → MEDIUM → HIGH → EXTREME<br><br>View whale activity in <b>Market Intelligence</b> tab.<br>Whale buy pressure = favorable for arbitrage. Whale sell pressure = exercise caution.';
+  }
+  if (q.includes('hello') || q.includes('hi') || q.includes('hey') || q.includes('help')) {
+    return 'Hello! How can I help you today? Here are some topics I can assist with:<br><br>- <b>"How to setup"</b> — Wallet and RPC configuration<br>- <b>"What is a flash loan"</b> — DeFi concepts explained<br>- <b>"How to deploy"</b> — Smart contract deployment<br>- <b>"Strategies"</b> — Which strategies to use<br>- <b>"Risk"</b> — Risk management features<br>- <b>"Backtesting"</b> — Testing before going live<br>- <b>"Alerts"</b> — Telegram/Discord notifications<br>- <b>"Error"</b> — Common errors and fixes<br><br>Just type your question!';
+  }
+  if (q.includes('thank') || q.includes('thanks')) {
+    return "You're welcome! Feel free to ask anytime. Happy trading! &#128640;";
+  }
+
+  // Default response
+  return "I don't have a specific answer for that yet, but here are some suggestions:<br><br>- Try asking about: <b>setup</b>, <b>strategies</b>, <b>risk</b>, <b>flash loan</b>, <b>gas</b>, <b>backtesting</b>, <b>alerts</b>, <b>deploy</b>, <b>error</b>, <b>MEV</b><br>- Check the <b>Guidelines</b> page for best practices<br>- Check the <b>Scenarios</b> page for trading examples<br><br>For advanced support, join our community or check the documentation.";
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+function clearQuiraChat() {
+  const container = $('quiraMessages');
+  if (!container) return;
+  container.innerHTML = `<div class="quira-msg quira-bot"><div class="quira-avatar">Q</div><div class="quira-bubble"><div class="quira-name">QUIRA</div>Chat cleared! How can I help you?</div></div>`;
+}
+
+// ===== THEME TOGGLE (Day/Night) =====
+function toggleTheme(){
+  const current=document.documentElement.getAttribute('data-theme');
+  const next=current==='day'?'night':'day';
+  document.documentElement.setAttribute('data-theme',next);
+  localStorage.setItem('qira-theme',next);
+  const icon=$('themeIcon');
+  if(icon)icon.innerHTML=next==='day'?'&#9728;':'&#9790;';
+}
+// Load saved theme
+(function(){
+  const saved=localStorage.getItem('qira-theme')||'night';
+  if(saved==='day'){
+    document.documentElement.setAttribute('data-theme','day');
+    const icon=$('themeIcon');if(icon)icon.innerHTML='&#9728;';
+  }
+})();
+
 // ===== CLOCK =====
 setInterval(()=>{const el=$('clock');if(el)el.textContent=new Date().toLocaleTimeString();},1000);
+
+// ===== PHASE A: MARKET INTELLIGENCE =====
+socket.on('marketSignals', (signals) => {
+  updateMarketSignals(signals);
+});
+socket.on('riskStatus', (rs) => {
+  updateRiskPanel(rs);
+});
+socket.on('advisories', (adv) => {
+  updateAdvisoryPanel(adv);
+});
+
+function updateMarketSignals(signals) {
+  if (!signals || !Array.isArray(signals)) return;
+  const el = $('miSignalsList');
+  if (!el) return;
+  if (signals.length === 0) {
+    el.innerHTML = '<div style="color:var(--text3);padding:8px">No active signals</div>';
+    return;
+  }
+  const sevColors = { HIGH: 'var(--red)', EXTREME: 'var(--red)', MEDIUM: 'var(--orange)', LOW: 'var(--green)' };
+  el.innerHTML = signals.slice(0, 10).map(s => `
+    <div class="bot-row">
+      <div style="flex:1">
+        <div class="bot-name" style="color:${sevColors[s.severity] || 'var(--text2)'}">${escapeHtml(s.type)}</div>
+        <div class="bot-desc">${escapeHtml(s.message || '')}</div>
+        ${s.suggestion ? '<div class="bot-desc" style="color:var(--accent)">' + escapeHtml(s.suggestion) + '</div>' : ''}
+      </div>
+      <span class="badge badge-${s.severity === 'HIGH' || s.severity === 'EXTREME' ? 'red' : s.severity === 'MEDIUM' ? 'orange' : 'green'}">${s.severity}</span>
+    </div>
+  `).join('');
+  const countEl = $('miSignalCount');
+  if (countEl) countEl.textContent = signals.length;
+}
+
+function updateMarketIntel(aiStatus) {
+  if (!aiStatus) return;
+  const ms = aiStatus.marketState;
+  if (ms) {
+    const sentEl = $('miSentiment');
+    if (sentEl) sentEl.textContent = (aiStatus.marketSentiment || 0).toFixed(2);
+  }
+  const wa = aiStatus.whaleActivity || {};
+  const miWA = $('miWhaleAlert');
+  if (miWA && aiStatus.marketState) miWA.textContent = aiStatus.marketState.whaleAlert || 'NONE';
+  const miWB = $('miWhaleBuy');
+  if (miWB) miWB.textContent = wa.buyPressure || 0;
+  const miWS = $('miWhaleSell');
+  if (miWS) miWS.textContent = wa.sellPressure || 0;
+  const miWV = $('miWhaleVol');
+  if (miWV) miWV.textContent = (wa.totalVolume || 0).toFixed(1) + ' ETH';
+
+  // Plugin health
+  const ph = aiStatus.pluginHealth || {};
+  for (const [key, info] of Object.entries(ph)) {
+    const badge = key === 'pool-liquidity' ? $('miPlugPool') : key === 'historical-patterns' ? $('miPlugHist') : key === 'whale-enhanced' ? $('miPlugWhale') : null;
+    if (badge) {
+      const st = info.healthStatus || 'unknown';
+      badge.textContent = st.toUpperCase();
+      badge.className = 'badge badge-' + (st === 'healthy' ? 'green' : st === 'degraded' ? 'orange' : st === 'down' ? 'red' : 'gray');
+    }
+  }
+  const phEl = $('miPluginHealth');
+  const healthyCount = Object.values(ph).filter(p => p.healthStatus === 'healthy').length;
+  if (phEl) phEl.textContent = healthyCount + '/' + Object.keys(ph).length;
+
+  // Signals
+  if (aiStatus.marketSignals) updateMarketSignals(aiStatus.marketSignals);
+}
+
+// ===== PHASE A: AI DECISIONS =====
+function updateAdvisoryPanel(advisories) {
+  const el = $('adAdvisoryList');
+  if (!el || !advisories) return;
+  if (!Array.isArray(advisories) || advisories.length === 0) {
+    el.innerHTML = '<div class="alert alert-info" style="margin-bottom:0"><span class="alert-icon">&#128161;</span><div>No pending recommendations.</div></div>';
+    return;
+  }
+  el.innerHTML = advisories.map(a => `
+    <div class="bot-row" style="flex-wrap:wrap">
+      <div style="flex:1;min-width:200px">
+        <div class="bot-name">${escapeHtml(a.title)}</div>
+        <div class="bot-desc">${escapeHtml(a.reasoning)}</div>
+        <div class="bot-desc" style="color:var(--accent)">Confidence: ${(a.confidence * 100).toFixed(0)}% | Risk: ${escapeHtml(a.risk)} | Impact: ${escapeHtml(a.impact)}</div>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <button class="btn btn-sm btn-primary" onclick="approveAdvisory('${a.id}')">Approve</button>
+        <button class="btn btn-sm" onclick="rejectAdvisory('${a.id}')">Reject</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function updateAutoStatus(autoStatus) {
+  if (!autoStatus?.currentParams) return;
+  const p = autoStatus.currentParams;
+  const el1 = $('adMinProfit'); if (el1) el1.textContent = (p.minProfitBps || '--') + ' bps';
+  const el2 = $('adMaxSlippage'); if (el2) el2.textContent = (p.maxSlippageBps || '--') + ' bps';
+  const el3 = $('adScanInterval'); if (el3) el3.textContent = (p.scanIntervalMs || '--') + ' ms';
+  const el4 = $('adFlashMult'); if (el4) el4.textContent = (p.flashAmountMultiplier || 1).toFixed(1) + 'x';
+
+  // Recent decisions
+  const decisions = autoStatus.recentDecisions || [];
+  const tbody = $('adDecisionBody');
+  if (tbody && decisions.length > 0) {
+    tbody.innerHTML = decisions.slice(-10).reverse().map(d => `
+      <tr>
+        <td>${new Date(d.timestamp).toLocaleTimeString()}</td>
+        <td>${d.type}</td>
+        <td>${d.adjustments ? JSON.stringify(d.adjustments).slice(0, 60) : '-'}</td>
+        <td style="font-size:11px">${(d.reasons || []).join('; ')}</td>
+      </tr>
+    `).join('');
+  }
+}
+
+async function approveAdvisory(id) {
+  const res = await apiCall('advisories/' + id + '/approve', 'POST');
+  if (res.success) { alert('Advisory approved'); loadAdvisories(); }
+}
+async function rejectAdvisory(id) {
+  const res = await apiCall('advisories/' + id + '/reject', 'POST');
+  if (res.success) { alert('Advisory rejected'); loadAdvisories(); }
+}
+async function loadAdvisories() {
+  const res = await apiCall('advisories');
+  if (res.success) updateAdvisoryPanel(res.pending);
+}
+
+// ===== PHASE A: RISK MANAGEMENT =====
+function updateRiskPanel(rs) {
+  if (!rs) return;
+  const rl = $('rmRiskLevel'); if (rl) rl.textContent = (rs.riskLevel || 'balanced').toUpperCase();
+  const cb = rs.circuitBreaker || {};
+  const cbEl = $('rmCircuitBreaker');
+  if (cbEl) { cbEl.textContent = cb.tripped ? 'TRIPPED' : 'ARMED'; cbEl.style.color = cb.tripped ? 'var(--red)' : 'var(--green)'; }
+  const cf = $('rmConsecFail'); if (cf) cf.textContent = cb.consecutiveFailures || 0;
+  const hf = $('rmHourlyFail'); if (hf) hf.textContent = cb.hourlyFailures || 0;
+  const tt = $('rmTotalTrips'); if (tt) tt.textContent = cb.totalTrips || 0;
+  const ps = rs.positionSizer || {};
+  const bu = $('rmBudgetUsed'); if (bu) bu.textContent = '$' + (ps.dailyBudgetUsed || 0).toFixed(0);
+  const bl = $('rmBlacklisted'); if (bl) bl.textContent = rs.blacklistedTokens || 0;
+
+  // Audit trail
+  const records = rs.recentDecisions || [];
+  const tbody = $('rmAuditBody');
+  if (tbody && records.length > 0) {
+    tbody.innerHTML = records.slice(-10).reverse().map(r => `
+      <tr>
+        <td>${new Date(r.timestamp).toLocaleTimeString()}</td>
+        <td>${r.type}</td>
+        <td>${r.assessment?.riskScore ?? '-'}</td>
+        <td><span class="badge badge-${r.assessment?.allowed ? 'green' : 'red'}">${r.assessment?.allowed ? 'ALLOW' : 'BLOCK'}</span></td>
+        <td style="font-size:11px">${(r.assessment?.reasons || []).join('; ') || '-'}</td>
+      </tr>
+    `).join('');
+  }
+}
+
+async function setRiskLevel(level) {
+  const res = await apiCall('risk/level', 'POST', { level });
+  if (res.success) {
+    ['conservative', 'balanced', 'aggressive'].forEach(l => {
+      const btn = $('rmBtn' + l.charAt(0).toUpperCase() + l.slice(1));
+      if (btn) btn.className = l === level ? 'btn btn-sm btn-primary' : 'btn btn-sm';
+    });
+    alert('Risk level set to: ' + level);
+  }
+}
+
+async function resetCircuitBreaker() {
+  const res = await apiCall('risk/reset-circuit-breaker', 'POST');
+  if (res.success) alert('Circuit breaker reset');
+}
+
+// ===== PHASE A: BACKTESTING =====
+async function runBacktest() {
+  const btn = $('btRunBtn'); if (btn) btn.disabled = true;
+  const res = await apiCall('backtests/historical', 'POST', {
+    daysBack: parseInt($('btDaysBack')?.value || 7),
+    minProfitBps: parseInt($('btMinProfit')?.value || 30),
+    flashAmount: parseInt($('btFlashAmount')?.value || 10000),
+    useLocalData: true,
+  });
+  if (btn) btn.disabled = false;
+  const el = $('btResults');
+  if (!el) return;
+  if (res.success && res.result) {
+    const r = res.result;
+    const m = r.metrics || {};
+    el.innerHTML = `
+      <div class="bot-row"><div style="flex:1"><div class="bot-name">Total Trades</div></div><span style="font-weight:700">${m.totalWins + m.totalLosses || 0}</span></div>
+      <div class="bot-row"><div style="flex:1"><div class="bot-name">Win Rate</div></div><span style="font-weight:700;color:var(--green)">${((m.winRate || 0) * 100).toFixed(1)}%</span></div>
+      <div class="bot-row"><div style="flex:1"><div class="bot-name">Total Profit</div></div><span style="font-weight:700;color:${m.totalProfit >= 0 ? 'var(--green)' : 'var(--red)'}">$${(m.totalProfit || 0).toFixed(2)}</span></div>
+      <div class="bot-row"><div style="flex:1"><div class="bot-name">Sharpe Ratio</div></div><span style="font-weight:700">${(m.sharpeRatio || 0).toFixed(2)}</span></div>
+      <div class="bot-row"><div style="flex:1"><div class="bot-name">Profit Factor</div></div><span style="font-weight:700">${m.profitFactor === Infinity ? '&infin;' : (m.profitFactor || 0).toFixed(2)}</span></div>
+      <div class="bot-row"><div style="flex:1"><div class="bot-name">Max Consecutive Wins</div></div><span style="font-weight:700">${m.maxConsecWins || 0}</span></div>
+      <div class="bot-row"><div style="flex:1"><div class="bot-name">Max Consecutive Losses</div></div><span style="font-weight:700">${m.maxConsecLosses || 0}</span></div>
+    `;
+  } else {
+    el.innerHTML = '<div class="alert alert-warn"><span class="alert-icon">&#9888;</span><div>' + (res.error || 'Backtest failed') + '</div></div>';
+  }
+}
+
+async function runReplay() {
+  const btn = $('btReplayBtn'); if (btn) btn.disabled = true;
+  const res = await apiCall('backtests/replay', 'POST', {
+    minProfitBps: parseInt($('btReplayMinProfit')?.value || 20),
+  });
+  if (btn) btn.disabled = false;
+  const el = $('btReplayResults');
+  if (!el) return;
+  if (res.success && res.result) {
+    const r = res.result;
+    el.innerHTML = `<div style="color:var(--text2)">
+      Would execute: <b>${r.wouldExecute}</b> | Skip: <b>${r.wouldSkip}</b> |
+      Win rate: <b style="color:var(--green)">${((r.winRate || 0) * 100).toFixed(1)}%</b> |
+      Net profit: <b style="color:${r.netProfit >= 0 ? 'var(--green)' : 'var(--red)'}">$${(r.netProfit || 0).toFixed(2)}</b>
+    </div>`;
+  } else {
+    el.innerHTML = '<span style="color:var(--red)">' + (res.error || 'Replay failed') + '</span>';
+  }
+}
+
+async function startABTest() {
+  const btn = $('btAbStartBtn'); if (btn) btn.disabled = true;
+  const res = await apiCall('ab-test/start', 'POST', {
+    nameA: 'Strategy A (min ' + ($('btAbMinA')?.value || 30) + ' bps)',
+    nameB: 'Strategy B (min ' + ($('btAbMinB')?.value || 50) + ' bps)',
+    strategyA: { minProfitBps: parseInt($('btAbMinA')?.value || 30) },
+    strategyB: { minProfitBps: parseInt($('btAbMinB')?.value || 50) },
+    durationHours: parseInt($('btAbDuration')?.value || 24),
+  });
+  if (btn) btn.disabled = false;
+  const el = $('btAbStatus');
+  if (el) el.innerHTML = res.success ? '<span style="color:var(--green)">A/B test started! Check AI Status for live comparison.</span>' : '<span style="color:var(--red)">' + (res.error || 'Failed') + '</span>';
+}
+
+// ===== PHASE A: ALERTS =====
+async function saveAlertConfig() {
+  const cfg = {
+    telegram: {
+      enabled: $('alertTgEnabled')?.checked || false,
+      botToken: $('alertTgToken')?.value || '',
+      chatId: $('alertTgChatId')?.value || '',
+    },
+    discord: {
+      enabled: $('alertDcEnabled')?.checked || false,
+      webhookUrl: $('alertDcWebhook')?.value || '',
+    },
+    minPriority: $('alertMinPriority')?.value || 'MEDIUM',
+    quietHours: { enabled: $('alertQuietHours')?.checked || false, start: '23:00', end: '07:00' },
+  };
+  const res = await apiCall('alerts/config', 'POST', cfg);
+  const el = $('alertTestResult');
+  if (el) el.innerHTML = res.success ? '<span style="color:var(--green)">Alert configuration saved!</span>' : '<span style="color:var(--red)">' + (res.error || 'Failed') + '</span>';
+}
+
+async function sendTestAlert() {
+  const el = $('alertTestResult');
+  if (el) el.innerHTML = 'Sending...';
+  const res = await apiCall('alerts/test', 'POST');
+  if (el) el.innerHTML = res.success ? '<span style="color:var(--green)">Test alert sent!</span>' : '<span style="color:var(--red)">' + (res.error || 'Failed') + '</span>';
+}
+
+// ===== PHASE A: Hook into AI status updates =====
+const _origUpdateAI = typeof updateAIStatus === 'function' ? updateAIStatus : null;
+socket.on('aiStatus', (data) => {
+  updateMarketIntel(data);
+  if (data?.autonomousStatus) updateAutoStatus(data.autonomousStatus);
+  if (data?.riskStatus) updateRiskPanel(data.riskStatus);
+  if (data?.pendingAdvisories) updateAdvisoryPanel(data.pendingAdvisories);
+});
 
 // ===== INIT =====
 loadState();
@@ -2430,6 +3876,8 @@ loadState();
 apiCall('ai/status').then(res=>{if(res&&res.aiStatus)updateAIStatus(res.aiStatus);});
 // Load initial trade stats
 apiCall('trades/stats').then(res=>{if(res&&res.stats)updateDashboardStats(res.stats);});
+// Load initial advisories
+apiCall('advisories').then(res=>{if(res&&res.pending)updateAdvisoryPanel(res.pending);});
 </script>
 </body>
 </html>

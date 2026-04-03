@@ -136,12 +136,18 @@ contract LiquidationExecutor is FlashLoanSimpleReceiverBase, Ownable, Reentrancy
 
         uint256 debtReceived;
         if (liqParams.collateralAsset != asset) {
+            // minAmountOut is set to 0 because collateral and debt tokens can have
+            // different decimals and prices, making a percentage of collateralBalance
+            // meaningless as a debt token minimum. Profitability is enforced by the
+            // require(debtReceived >= amountOwed) check below, which guarantees we
+            // receive enough debt token to repay the flash loan plus premium.
             debtReceived = _swapCollateralForDebt(
                 liqParams.collateralAsset,
                 asset,
                 collateralBalance,
                 liqParams.useV3,
-                liqParams.swapFee
+                liqParams.swapFee,
+                0
             );
         } else {
             debtReceived = collateralBalance;
@@ -167,7 +173,8 @@ contract LiquidationExecutor is FlashLoanSimpleReceiverBase, Ownable, Reentrancy
         address _debt,
         uint256 _amount,
         bool _useV3,
-        uint24 _fee
+        uint24 _fee,
+        uint256 _minAmountOut
     ) internal returns (uint256 amountOut) {
         if (_useV3 && swapRouterV3 != address(0)) {
             IERC20(_collateral).safeIncreaseAllowance(swapRouterV3, _amount);
@@ -180,7 +187,7 @@ contract LiquidationExecutor is FlashLoanSimpleReceiverBase, Ownable, Reentrancy
                     recipient: address(this),
                     deadline: block.timestamp + 300,
                     amountIn: _amount,
-                    amountOutMinimum: 0, // Slippage handled off-chain
+                    amountOutMinimum: _minAmountOut,
                     sqrtPriceLimitX96: 0
                 })
             );
@@ -195,7 +202,7 @@ contract LiquidationExecutor is FlashLoanSimpleReceiverBase, Ownable, Reentrancy
             uint256[] memory amounts = IUniswapV2Router02(swapRouterV2)
                 .swapExactTokensForTokens(
                     _amount,
-                    0,
+                    _minAmountOut,
                     path,
                     address(this),
                     block.timestamp + 300

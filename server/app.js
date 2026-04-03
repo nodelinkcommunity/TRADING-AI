@@ -1,7 +1,7 @@
 /**
- * FLASHLOAN-AI Web Server
+ * QIRA Protocol Web Server
  * Express + Socket.IO backend for controlling DeFi arbitrage bots
- * Runs on VPS, accessible via browser at http://YOUR_IP:3000
+ * Secured with JWT auth + TOTP (Google Authenticator) + Web3 wallet login
  */
 
 const express = require("express");
@@ -11,6 +11,12 @@ const path = require("path");
 const fs = require("fs");
 const { spawn } = require("child_process");
 const crypto = require("crypto");
+const jwt = require("jsonwebtoken");
+const bcrypt = require("bcryptjs");
+const { authenticator } = require("otplib");
+const QRCode = require("qrcode");
+const { ethers } = require("ethers");
+const nodemailer = require("nodemailer");
 
 const app = express();
 const server = http.createServer(app);
@@ -22,7 +28,421 @@ const PORT = process.env.PORT || 3000;
 const DATA_DIR = path.join(__dirname, "data");
 const ENV_PATH = path.join(__dirname, "..", ".env");
 const CONFIG_PATH = path.join(DATA_DIR, "config.json");
-const SESSION_SECRET = crypto.randomBytes(32).toString("hex");
+const AUTH_PATH = path.join(DATA_DIR, "auth.json");
+const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(64).toString("hex");
+const JWT_EXPIRES = "24h";
+
+// ============ EMAIL SMTP CONFIG ============
+
+// Configure SMTP via .env: SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM
+let emailTransporter = null;
+function getEmailTransporter() {
+  if (emailTransporter) return emailTransporter;
+  const host = process.env.SMTP_HOST;
+  const port = parseInt(process.env.SMTP_PORT || "587");
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+  if (!host || !user || !pass) return null;
+  emailTransporter = nodemailer.createTransport({
+    host, port, secure: port === 465,
+    auth: { user, pass },
+  });
+  return emailTransporter;
+}
+
+// In-memory store for email verification codes (userId -> { code, email, expiresAt })
+const emailVerCodes = {};
+
+// ============ AUTH SYSTEM ============
+
+function loadAuth() {
+  try {
+    if (fs.existsSync(AUTH_PATH)) return JSON.parse(fs.readFileSync(AUTH_PATH, "utf8"));
+  } catch (_) {}
+  return { users: [], setupComplete: false };
+}
+
+function saveAuth(auth) {
+  fs.writeFileSync(AUTH_PATH, JSON.stringify(auth, null, 2));
+}
+
+/**
+ * JWT auth middleware — protects all sensitive routes
+ * During setup, BLOCKS all sensitive operations (only auth routes are public)
+ */
+function requireAuth(req, res, next) {
+  const auth = loadAuth();
+
+  // During initial setup, BLOCK all sensitive operations
+  // Only auth routes (status, register, wallet-login) are public and don't use requireAuth
+  if (!auth.setupComplete) {
+    return res.status(403).json({ error: "System not initialized. Please register first." });
+  }
+
+  const token = req.headers.authorization?.replace("Bearer ", "");
+  if (!token) return res.status(401).json({ error: "Authentication required" });
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch (err) {
+    return res.status(401).json({ error: "Invalid or expired token" });
+  }
+}
+
+// ============ AUTH ROUTES (public) ============
+
+// Check if setup is needed
+app.use(express.json());
+
+// Static files (must be before auth middleware for login page)
+app.use(express.static(path.join(__dirname, "public")));
+
+// GET auth status — is registration complete?
+app.get("/api/auth/status", (req, res) => {
+  const auth = loadAuth();
+  res.json({
+    setupComplete: auth.setupComplete,
+    hasUsers: auth.users.length > 0,
+    totpRequired: auth.users.some(u => u.totpEnabled),
+    walletLoginEnabled: auth.users.some(u => u.walletAddress),
+  });
+});
+
+// POST register first user (only works if no users exist)
+app.post("/api/auth/register", async (req, res) => {
+  const auth = loadAuth();
+  if (auth.setupComplete) {
+    return res.status(403).json({ error: "Registration closed. User already exists." });
+  }
+
+  const { email, password, walletAddress, walletSignature, walletMessage } = req.body;
+  if (!email || !password) {
+    return res.status(400).json({ error: "Email and password required" });
+  }
+  if (password.length < 8) {
+    return res.status(400).json({ error: "Password must be at least 8 characters" });
+  }
+  // Wallet binding is mandatory during registration
+  if (!walletAddress || !walletSignature || !walletMessage) {
+    return res.status(400).json({ error: "Wallet binding is required. Connect and sign with your Web3 wallet." });
+  }
+
+  // Verify wallet signature
+  let recoveredAddress;
+  try {
+    recoveredAddress = ethers.verifyMessage(walletMessage, walletSignature);
+  } catch (err) {
+    return res.status(400).json({ error: "Invalid wallet signature" });
+  }
+  if (recoveredAddress.toLowerCase() !== walletAddress.toLowerCase()) {
+    return res.status(400).json({ error: "Wallet signature mismatch" });
+  }
+
+  const hashedPassword = await bcrypt.hash(password, 12);
+  const user = {
+    id: crypto.randomUUID(),
+    email: email.toLowerCase().trim(),
+    password: hashedPassword,
+    totpEnabled: false,
+    totpSecret: null,
+    walletAddress: recoveredAddress,
+    createdAt: Date.now(),
+  };
+
+  auth.users.push(user);
+  auth.setupComplete = true;
+  saveAuth(auth);
+
+  const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
+  res.json({ success: true, token, message: "Account created with wallet bound" });
+});
+
+// POST login with Web3 wallet signature + optional TOTP (2FA)
+app.post("/api/auth/wallet-login", (req, res) => {
+  const auth = loadAuth();
+  const { address, signature, message, totpCode } = req.body;
+
+  if (!address || !signature || !message) {
+    return res.status(400).json({ error: "Address, signature, and message required" });
+  }
+
+  // Verify the message contains a recent timestamp (prevent replay attacks)
+  const tsMatch = message.match(/Timestamp:\s*(\d+)/);
+  if (!tsMatch) {
+    return res.status(400).json({ error: "Message must contain a valid timestamp" });
+  }
+  const ts = parseInt(tsMatch[1]);
+  if (Math.abs(Date.now() - ts) > 300000) { // 5 min window
+    return res.status(401).json({ error: "Signature expired. Please sign again." });
+  }
+
+  // Recover signer address from signature
+  let recoveredAddress;
+  try {
+    recoveredAddress = ethers.verifyMessage(message, signature);
+  } catch (err) {
+    return res.status(401).json({ error: "Invalid signature" });
+  }
+
+  if (recoveredAddress.toLowerCase() !== address.toLowerCase()) {
+    return res.status(401).json({ error: "Signature does not match address" });
+  }
+
+  // Find user by wallet address
+  let user = auth.users.find(u => u.walletAddress?.toLowerCase() === address.toLowerCase());
+
+  if (!user) {
+    if (auth.setupComplete && auth.users.length > 0) {
+      return res.status(403).json({ error: "Wallet not registered" });
+    }
+    // First user via wallet — auto-register (setup not yet complete)
+    user = {
+      id: crypto.randomUUID(),
+      totpEnabled: false,
+      totpSecret: null,
+      walletAddress: address.toLowerCase(),
+      createdAt: Date.now(),
+    };
+    auth.users.push(user);
+    auth.setupComplete = true;
+    saveAuth(auth);
+  }
+
+  // Check TOTP (2FA) if enabled — Layer 2 authentication (before issuing token)
+  if (user.totpEnabled) {
+    if (!totpCode) {
+      return res.status(403).json({ error: "2FA code required", totpRequired: true });
+    }
+    const totpValid = authenticator.verify({ token: totpCode, secret: user.totpSecret });
+    if (!totpValid) {
+      return res.status(401).json({ error: "Invalid 2FA code. Try again." });
+    }
+  }
+
+  const token = jwt.sign({ id: user.id, wallet: user.walletAddress }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
+  res.json({ success: true, token, address: user.walletAddress });
+});
+
+// GET current user profile info (authenticated)
+app.get("/api/auth/me", requireAuth, (req, res) => {
+  const auth = loadAuth();
+  const user = auth.users.find(u => u.id === req.user.id);
+  if (!user) return res.status(404).json({ error: "User not found" });
+
+  res.json({
+    success: true,
+    email: user.email || null,
+    walletAddress: user.walletAddress || null,
+    totpEnabled: !!user.totpEnabled,
+    emailVerified: !!user.emailVerified,
+    createdAt: user.createdAt,
+    hasPassword: !!user.password,
+  });
+});
+
+// POST setup TOTP (Google Authenticator)
+app.post("/api/auth/totp/setup", requireAuth, (req, res) => {
+  const auth = loadAuth();
+  const user = auth.users.find(u => u.id === req.user.id);
+  if (!user) return res.status(404).json({ error: "User not found" });
+
+  const secret = authenticator.generateSecret();
+  const otpauth = authenticator.keyuri(user.email || user.walletAddress || "user", "QIRA Protocol", secret);
+
+  // Generate QR code as data URL
+  QRCode.toDataURL(otpauth, (err, qrDataUrl) => {
+    if (err) return res.status(500).json({ error: "Failed to generate QR code" });
+
+    // Store secret temporarily (not enabled until verified)
+    user._pendingTotpSecret = secret;
+    saveAuth(auth);
+
+    res.json({ success: true, qrCode: qrDataUrl, secret, message: "Scan QR code with Google Authenticator, then verify with a code" });
+  });
+});
+
+// POST verify & enable TOTP
+app.post("/api/auth/totp/verify", requireAuth, (req, res) => {
+  const auth = loadAuth();
+  const user = auth.users.find(u => u.id === req.user.id);
+  if (!user) return res.status(404).json({ error: "User not found" });
+
+  const { code } = req.body;
+  const secret = user._pendingTotpSecret;
+  if (!secret) return res.status(400).json({ error: "No pending TOTP setup. Call /api/auth/totp/setup first." });
+
+  const valid = authenticator.verify({ token: code, secret });
+  if (!valid) return res.status(401).json({ error: "Invalid code. Try again." });
+
+  user.totpSecret = secret;
+  user.totpEnabled = true;
+  delete user._pendingTotpSecret;
+  saveAuth(auth);
+
+  res.json({ success: true, message: "TOTP enabled. You will need your authenticator app for future logins." });
+});
+
+// POST disable TOTP
+app.post("/api/auth/totp/disable", requireAuth, (req, res) => {
+  const auth = loadAuth();
+  const user = auth.users.find(u => u.id === req.user.id);
+  if (!user) return res.status(404).json({ error: "User not found" });
+
+  const { code } = req.body;
+  if (user.totpEnabled) {
+    const valid = authenticator.verify({ token: code, secret: user.totpSecret });
+    if (!valid) return res.status(401).json({ error: "Invalid TOTP code" });
+  }
+
+  user.totpEnabled = false;
+  user.totpSecret = null;
+  saveAuth(auth);
+
+  res.json({ success: true, message: "TOTP disabled" });
+});
+
+// POST link Web3 wallet to existing account
+app.post("/api/auth/link-wallet", requireAuth, (req, res) => {
+  const auth = loadAuth();
+  const user = auth.users.find(u => u.id === req.user.id);
+  if (!user) return res.status(404).json({ error: "User not found" });
+
+  const { address, signature, message } = req.body;
+
+  let recoveredAddress;
+  try {
+    recoveredAddress = ethers.verifyMessage(message, signature);
+  } catch (err) {
+    return res.status(401).json({ error: "Invalid signature" });
+  }
+
+  if (recoveredAddress.toLowerCase() !== address.toLowerCase()) {
+    return res.status(401).json({ error: "Signature mismatch" });
+  }
+
+  user.walletAddress = address.toLowerCase();
+  saveAuth(auth);
+
+  res.json({ success: true, message: "Wallet linked", address: user.walletAddress });
+});
+
+// POST change password
+// POST send email verification code
+app.post("/api/auth/email/send-code", requireAuth, async (req, res) => {
+  const { email } = req.body;
+  if (!email || !email.includes("@")) {
+    return res.status(400).json({ error: "Valid email address required" });
+  }
+
+  // Generate 6-digit code
+  const code = Math.floor(100000 + Math.random() * 900000).toString();
+  emailVerCodes[req.user.id] = {
+    code,
+    email: email.toLowerCase().trim(),
+    expiresAt: Date.now() + 10 * 60 * 1000, // 10 minutes
+  };
+
+  // Try to send via SMTP
+  const transporter = getEmailTransporter();
+  if (transporter) {
+    try {
+      const fromAddr = process.env.SMTP_FROM || process.env.SMTP_USER;
+      await transporter.sendMail({
+        from: `"QIRA Protocol" <${fromAddr}>`,
+        to: email,
+        subject: "QIRA Protocol — Email Verification Code",
+        html: `
+          <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#0d0b1e;color:#e4e8f1;border-radius:12px">
+            <div style="text-align:center;margin-bottom:24px">
+              <h2 style="color:#c054f0;margin:0">QIRA Protocol</h2>
+              <p style="color:#8b7fad;font-size:13px">Intelligent Flash Engine</p>
+            </div>
+            <p style="font-size:14px">Your verification code:</p>
+            <div style="background:#16122a;border:2px solid #c054f0;border-radius:10px;padding:20px;text-align:center;margin:20px 0">
+              <span style="font-size:36px;font-weight:800;letter-spacing:8px;color:#e040fb">${code}</span>
+            </div>
+            <p style="font-size:12px;color:#8b7fad">This code expires in <b>10 minutes</b>. Do not share it with anyone.</p>
+            <hr style="border:none;border-top:1px solid #241b44;margin:20px 0">
+            <p style="font-size:11px;color:#5c5080;text-align:center">If you didn't request this code, please ignore this email.</p>
+          </div>
+        `,
+      });
+      console.log(`[Auth] Verification code sent to ${email}`);
+      return res.json({ success: true, message: "Verification code sent" });
+    } catch (err) {
+      console.error(`[Auth] Email send error: ${err.message}`);
+      return res.status(500).json({ error: "Failed to send email. Check SMTP settings in .env" });
+    }
+  } else {
+    // No SMTP configured — show code in server console for development
+    console.log(`\n========================================`);
+    console.log(`  EMAIL VERIFICATION CODE for ${email}`);
+    console.log(`  Code: ${code}`);
+    console.log(`  (Configure SMTP_HOST, SMTP_USER, SMTP_PASS in .env to send real emails)`);
+    console.log(`========================================\n`);
+    return res.json({ success: true, message: "Verification code sent (check server console — SMTP not configured)" });
+  }
+});
+
+// POST verify email code & bind to wallet
+app.post("/api/auth/email/verify", requireAuth, (req, res) => {
+  const { code } = req.body;
+  if (!code) return res.status(400).json({ error: "Verification code required" });
+
+  const pending = emailVerCodes[req.user.id];
+  if (!pending) return res.status(400).json({ error: "No pending verification. Send a code first." });
+
+  if (Date.now() > pending.expiresAt) {
+    delete emailVerCodes[req.user.id];
+    return res.status(400).json({ error: "Code expired. Request a new one." });
+  }
+
+  if (pending.code !== code.trim()) {
+    return res.status(401).json({ error: "Invalid code. Check and try again." });
+  }
+
+  // Code is valid — verify & bind email
+  const auth = loadAuth();
+  const user = auth.users.find(u => u.id === req.user.id);
+  if (!user) return res.status(404).json({ error: "User not found" });
+
+  user.email = pending.email;
+  user.emailVerified = true;
+  user.emailVerifiedAt = Date.now();
+  saveAuth(auth);
+
+  delete emailVerCodes[req.user.id];
+  console.log(`[Auth] Email ${pending.email} verified & bound to wallet ${user.walletAddress || "N/A"}`);
+
+  res.json({
+    success: true,
+    message: "Email verified and bound to wallet",
+    email: user.email,
+    walletAddress: user.walletAddress || null,
+  });
+});
+
+app.post("/api/auth/change-password", requireAuth, async (req, res) => {
+  const auth = loadAuth();
+  const user = auth.users.find(u => u.id === req.user.id);
+  if (!user) return res.status(404).json({ error: "User not found" });
+
+  const { currentPassword, newPassword } = req.body;
+  if (user.password) {
+    const valid = await bcrypt.compare(currentPassword, user.password);
+    if (!valid) return res.status(401).json({ error: "Current password incorrect" });
+  }
+  if (!newPassword || newPassword.length < 8) {
+    return res.status(400).json({ error: "New password must be at least 8 characters" });
+  }
+
+  user.password = await bcrypt.hash(newPassword, 12);
+  saveAuth(auth);
+
+  res.json({ success: true, message: "Password changed" });
+});
 
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
@@ -101,10 +521,45 @@ const DEFAULT_CONFIG = {
     },
   },
 
-  // Alerts
+  // Alerts (legacy)
   alertMode: "console",
   telegramToken: "",
   telegramChatId: "",
+
+  // Phase A: AI Super Bot config
+  ai: {
+    riskLevel: "balanced",
+    autoExecuteThreshold: 90,
+    learningEnabled: true,
+  },
+  plugins: {
+    defiLlama: { enabled: true },
+    theGraph: { enabled: true, apiKey: "" },
+    dune: { enabled: true, apiKey: "" },
+    whaleTracker: { enabled: true },
+  },
+  risk: {
+    maxLossPerTrade: 50,
+    dailyLossLimit: 500,
+    maxExposurePerToken: 0.3,
+    maxExposurePerChain: 0.5,
+    circuitBreaker: {
+      consecutiveFailures: 3,
+      hourlyFailures: 5,
+      gasSpikeMultiplier: 5,
+      cooldownMinutes: 5,
+    },
+  },
+  alerts: {
+    telegram: { enabled: false, botToken: "", chatId: "" },
+    discord: { enabled: false, webhookUrl: "" },
+    quietHours: { enabled: false, start: "23:00", end: "07:00" },
+    minPriority: "MEDIUM",
+  },
+  backtesting: {
+    saveOpportunities: true,
+    maxStoredOpportunities: 10000,
+  },
 };
 
 // ============ STATE ============
@@ -366,7 +821,7 @@ function startBot(botName) {
       ...((() => {
         const botChain = config.chain || "arbitrumSepolia";
         const addr = config.contractAddresses?.[botChain] || config.contractAddress || "";
-        return addr ? { CONTRACT_ADDRESS: addr } : {};
+        return addr ? { CONTRACT_ADDRESS: addr, FLASHLOAN_CONTRACT_ADDRESS: addr } : {};
       })()),
       BOT_CHAIN: config.chain || "arbitrumSepolia",
       FLASH_AMOUNT_USD: String(config.flashAmountUsd || 50000),
@@ -592,21 +1047,39 @@ function parseLogForStats(line) {
     } catch (_) {}
   }
 
-  // Parse AI engine ready
-  if (line.includes("[AI] AI Engine ready")) {
+  // Parse AI engine ready (v1 or v2)
+  if (line.includes("[AI] AI Engine") && line.includes("ready")) {
     aiStatus.isRunning = true;
+  }
+
+  // Parse Phase A: Risk blocked
+  if (line.startsWith("[RISK] Blocked:")) {
+    aiStatus.lastRiskBlock = line.replace("[RISK] ", "");
+  }
+
+  // Parse Phase A: Autonomous adjustment
+  if (line.startsWith("[AUTO] ")) {
+    aiStatus.lastAutoAdjustment = line.replace("[AUTO] ", "");
+  }
+
+  // Parse Phase A: Market signals
+  if (line.startsWith("[SIGNAL] ")) {
+    aiStatus.lastSignal = line.replace("[SIGNAL] ", "");
+  }
+
+  // Parse Phase A: AI_STATUS JSON line (periodic full status broadcast)
+  if (line.startsWith("AI_STATUS:")) {
+    try {
+      const statusJson = JSON.parse(line.substring(10));
+      Object.assign(aiStatus, statusJson);
+    } catch (_) {}
   }
 }
 
-// ============ MIDDLEWARE ============
-
-app.use(express.json());
-app.use(express.static(path.join(__dirname, "public")));
-
-// ============ API ROUTES ============
+// ============ PROTECTED API ROUTES ============
 
 // GET full application state
-app.get("/api/state", (req, res) => {
+app.get("/api/state", requireAuth, (req, res) => {
   const envVars = loadEnvVars();
   res.json({
     config: {
@@ -625,7 +1098,7 @@ app.get("/api/state", (req, res) => {
 });
 
 // GET logs with optional filter
-app.get("/api/logs", (req, res) => {
+app.get("/api/logs", requireAuth, (req, res) => {
   const limit = Math.min(parseInt(req.query.limit) || 100, 500);
   const source = req.query.source;
   let filtered = logs;
@@ -634,7 +1107,7 @@ app.get("/api/logs", (req, res) => {
 });
 
 // POST update credentials (stored in .env file)
-app.post("/api/credentials", (req, res) => {
+app.post("/api/credentials", requireAuth, (req, res) => {
   const { privateKey, rpcUrl, arbiscanKey, telegramToken, telegramChatId } = req.body;
 
   if (privateKey) {
@@ -687,7 +1160,7 @@ app.post("/api/credentials", (req, res) => {
 });
 
 // POST update trading configuration
-app.post("/api/config", (req, res) => {
+app.post("/api/config", requireAuth, (req, res) => {
   const updates = req.body;
   // Don't allow overwriting strategies via this endpoint
   const { strategies, ...rest } = updates;
@@ -704,7 +1177,7 @@ app.post("/api/config", (req, res) => {
 });
 
 // POST update individual strategy
-app.post("/api/strategy/:name", (req, res) => {
+app.post("/api/strategy/:name", requireAuth, (req, res) => {
   const { name } = req.params;
   if (!config.strategies[name]) {
     return res.status(404).json({ error: `Strategy "${name}" not found` });
@@ -746,24 +1219,27 @@ app.post("/api/strategy/:name", (req, res) => {
 });
 
 // POST start a specific bot
-app.post("/api/bot/:name/start", (req, res) => {
+app.post("/api/bot/:name/start", requireAuth, (req, res) => {
   const { name } = req.params;
   const ok = startBot(name);
   res.json({ success: ok, message: ok ? `Bot "${name}" started` : `Failed to start "${name}"` });
 });
 
 // POST stop a specific bot
-app.post("/api/bot/:name/stop", (req, res) => {
+app.post("/api/bot/:name/stop", requireAuth, (req, res) => {
   const { name } = req.params;
   const ok = stopBot(name);
   res.json({ success: ok, message: ok ? `Bot "${name}" stopping` : `Bot "${name}" not running` });
 });
 
 // POST start all enabled bots
-app.post("/api/bot/start-all", (req, res) => {
+app.post("/api/bot/start-all", requireAuth, (req, res) => {
   const results = {};
   const strats = config.strategies;
-  if (strats.dexArbitrage?.enabled || strats.triangular?.enabled) results.arbitrage = startBot("arbitrage");
+  // Arbitrage bot handles: dexArbitrage, triangular, newPool, oracleLag, yieldRebalance
+  const arbStrategies = ["dexArbitrage", "triangular", "newPool", "oracleLag", "yieldRebalance"];
+  const anyArbEnabled = arbStrategies.some(s => strats[s]?.enabled);
+  if (anyArbEnabled) results.arbitrage = startBot("arbitrage");
   if (strats.liquidation?.enabled) results.liquidation = startBot("liquidation");
   if (strats.stablecoin?.enabled) results.stablecoin = startBot("stablecoin");
   const started = Object.values(results).filter(Boolean).length;
@@ -772,13 +1248,13 @@ app.post("/api/bot/start-all", (req, res) => {
 });
 
 // POST stop all running bots
-app.post("/api/bot/stop-all", (req, res) => {
+app.post("/api/bot/stop-all", requireAuth, (req, res) => {
   stopAllBots();
   res.json({ success: true, message: "All bots stopping" });
 });
 
 // POST compile smart contracts
-app.post("/api/compile", (req, res) => {
+app.post("/api/compile", requireAuth, (req, res) => {
   addLog("info", "compile", "Compiling smart contracts...");
 
   const proc = spawn("npx", ["hardhat", "compile"], {
@@ -805,7 +1281,7 @@ app.post("/api/compile", (req, res) => {
 });
 
 // POST deploy smart contract
-app.post("/api/deploy", (req, res) => {
+app.post("/api/deploy", requireAuth, (req, res) => {
   // Check if credentials are configured
   const envVars = loadEnvVars();
   if (!envVars.PRIVATE_KEY || envVars.PRIVATE_KEY.includes("YOUR_")) {
@@ -849,7 +1325,7 @@ app.post("/api/deploy", (req, res) => {
 });
 
 // GET wallet balances across chains
-app.get("/api/balances", async (req, res) => {
+app.get("/api/balances", requireAuth, async (req, res) => {
   const { ethers } = require("ethers");
   const envVars = loadEnvVars();
   const pk = envVars.PRIVATE_KEY;
@@ -902,7 +1378,7 @@ app.get("/api/balances", async (req, res) => {
 });
 
 // GET AI engine status
-app.get("/api/ai/status", (req, res) => {
+app.get("/api/ai/status", requireAuth, (req, res) => {
   // AI runs inside the arbitrage bot process, so we return cached status
   res.json({
     success: true,
@@ -913,7 +1389,7 @@ app.get("/api/ai/status", (req, res) => {
 // ============ TRADE HISTORY API ============
 
 // GET trade history with pagination
-app.get("/api/trades", (req, res) => {
+app.get("/api/trades", requireAuth, (req, res) => {
   const page = Math.max(1, parseInt(req.query.page) || 1);
   const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
   const filter = req.query.filter || "all";
@@ -934,12 +1410,12 @@ app.get("/api/trades", (req, res) => {
 });
 
 // GET computed trade stats
-app.get("/api/trades/stats", (req, res) => {
+app.get("/api/trades/stats", requireAuth, (req, res) => {
   res.json({ success: true, stats: tradeStats });
 });
 
 // POST manually record a trade
-app.post("/api/trades/record", (req, res) => {
+app.post("/api/trades/record", requireAuth, (req, res) => {
   const trade = {
     id: Date.now(),
     timestamp: Date.now(),
@@ -955,7 +1431,7 @@ app.post("/api/trades/record", (req, res) => {
 });
 
 // POST generate a test trade
-app.post("/api/trades/test", (req, res) => {
+app.post("/api/trades/test", requireAuth, (req, res) => {
   const sampleTrade = {
     id: Date.now(),
     timestamp: Date.now(),
@@ -987,6 +1463,296 @@ app.post("/api/trades/test", (req, res) => {
   res.json({ success: true, trade: sampleTrade });
 });
 
+// ============ PHASE A: AI SUPER BOT API ============
+
+// GET full market state from all data plugins
+app.get("/api/market-state", requireAuth, (req, res) => {
+  try {
+    // Market state is broadcast from bot process via aiStatus
+    const marketState = aiStatus?.marketState || null;
+    const signals = aiStatus?.marketSignals || [];
+    const sentiment = aiStatus?.marketSentiment || 0;
+    res.json({ success: true, marketState, signals, sentiment });
+  } catch (error) {
+    res.json({ success: false, error: error.message });
+  }
+});
+
+// GET risk engine status
+app.get("/api/risk-status", requireAuth, (req, res) => {
+  try {
+    const riskStatus = aiStatus?.riskStatus || {};
+    res.json({ success: true, riskStatus });
+  } catch (error) {
+    res.json({ success: false, error: error.message });
+  }
+});
+
+// GET pending AI advisories
+app.get("/api/advisories", requireAuth, (req, res) => {
+  try {
+    const advisoriesPath = path.join(DATA_DIR, "advisories.json");
+    let advisories = [];
+    if (fs.existsSync(advisoriesPath)) {
+      advisories = JSON.parse(fs.readFileSync(advisoriesPath, "utf8"));
+    }
+    const pending = advisories.filter(a => a.status === "pending");
+    res.json({ success: true, advisories, pending });
+  } catch (error) {
+    res.json({ success: false, error: error.message, advisories: [], pending: [] });
+  }
+});
+
+// POST approve advisory
+app.post("/api/advisories/:id/approve", requireAuth, (req, res) => {
+  try {
+    const advisoriesPath = path.join(DATA_DIR, "advisories.json");
+    let advisories = [];
+    if (fs.existsSync(advisoriesPath)) {
+      advisories = JSON.parse(fs.readFileSync(advisoriesPath, "utf8"));
+    }
+    const advisory = advisories.find(a => a.id === req.params.id);
+    if (advisory) {
+      advisory.status = "approved";
+      advisory.respondedAt = Date.now();
+      fs.writeFileSync(advisoriesPath, JSON.stringify(advisories, null, 2));
+      addLog("info", "ai", `Advisory approved: ${advisory.title}`);
+      res.json({ success: true, advisory });
+    } else {
+      res.json({ success: false, error: "Advisory not found" });
+    }
+  } catch (error) {
+    res.json({ success: false, error: error.message });
+  }
+});
+
+// POST reject advisory
+app.post("/api/advisories/:id/reject", requireAuth, (req, res) => {
+  try {
+    const advisoriesPath = path.join(DATA_DIR, "advisories.json");
+    let advisories = [];
+    if (fs.existsSync(advisoriesPath)) {
+      advisories = JSON.parse(fs.readFileSync(advisoriesPath, "utf8"));
+    }
+    const advisory = advisories.find(a => a.id === req.params.id);
+    if (advisory) {
+      advisory.status = "rejected";
+      advisory.respondedAt = Date.now();
+      fs.writeFileSync(advisoriesPath, JSON.stringify(advisories, null, 2));
+      addLog("info", "ai", `Advisory rejected: ${advisory.title}`);
+      res.json({ success: true, advisory });
+    } else {
+      res.json({ success: false, error: "Advisory not found" });
+    }
+  } catch (error) {
+    res.json({ success: false, error: error.message });
+  }
+});
+
+// GET audit trail
+app.get("/api/audit-trail", requireAuth, (req, res) => {
+  try {
+    const auditPath = path.join(DATA_DIR, "audit-trail.json");
+    let records = [];
+    if (fs.existsSync(auditPath)) {
+      records = JSON.parse(fs.readFileSync(auditPath, "utf8"));
+    }
+    const limit = Math.min(100, parseInt(req.query.limit) || 50);
+    const type = req.query.type || null;
+    let filtered = records;
+    if (type) filtered = filtered.filter(r => r.type === type);
+    res.json({ success: true, records: filtered.slice(-limit), total: filtered.length });
+  } catch (error) {
+    res.json({ success: false, error: error.message, records: [] });
+  }
+});
+
+// GET data plugin health status
+app.get("/api/plugins/status", requireAuth, (req, res) => {
+  try {
+    const pluginHealth = aiStatus?.pluginHealth || {};
+    res.json({ success: true, plugins: pluginHealth });
+  } catch (error) {
+    res.json({ success: false, error: error.message });
+  }
+});
+
+// GET backtest results list
+app.get("/api/backtests", requireAuth, (req, res) => {
+  try {
+    const resultsDir = path.join(DATA_DIR, "backtest-results");
+    let results = [];
+    if (fs.existsSync(resultsDir)) {
+      results = fs.readdirSync(resultsDir)
+        .filter(f => f.endsWith(".json"))
+        .sort()
+        .slice(-20)
+        .map(f => {
+          try {
+            const data = JSON.parse(fs.readFileSync(path.join(resultsDir, f), "utf8"));
+            return { file: f, id: data.id, params: data.params, metrics: data.metrics, timestamp: data.timestamp };
+          } catch { return null; }
+        })
+        .filter(Boolean);
+    }
+    res.json({ success: true, results });
+  } catch (error) {
+    res.json({ success: false, error: error.message, results: [] });
+  }
+});
+
+// GET specific backtest result
+app.get("/api/backtests/:id", requireAuth, (req, res) => {
+  try {
+    const resultsDir = path.join(DATA_DIR, "backtest-results");
+    const files = fs.existsSync(resultsDir) ? fs.readdirSync(resultsDir) : [];
+    const file = files.find(f => f.includes(req.params.id));
+    if (file) {
+      const data = JSON.parse(fs.readFileSync(path.join(resultsDir, file), "utf8"));
+      res.json({ success: true, result: data });
+    } else {
+      res.json({ success: false, error: "Backtest not found" });
+    }
+  } catch (error) {
+    res.json({ success: false, error: error.message });
+  }
+});
+
+// POST run replay backtest
+app.post("/api/backtests/replay", requireAuth, (req, res) => {
+  try {
+    const ReplayEngine = require("../bot/backtesting/replay-engine");
+    const replay = new ReplayEngine();
+    replay.replay(req.body).then(result => {
+      addLog("info", "backtest", `Replay complete: ${result.wouldExecute || 0} trades simulated`);
+      res.json({ success: true, result });
+    }).catch(err => {
+      res.json({ success: false, error: err.message });
+    });
+  } catch (error) {
+    res.json({ success: false, error: error.message });
+  }
+});
+
+// POST run historical backtest
+app.post("/api/backtests/historical", requireAuth, (req, res) => {
+  try {
+    const HistoricalBacktester = require("../bot/backtesting/historical-backtester");
+    const bt = new HistoricalBacktester();
+    bt.run(req.body).then(result => {
+      addLog("info", "backtest", `Historical backtest complete: ${result.trades?.length || 0} trades`);
+      res.json({ success: true, result });
+    }).catch(err => {
+      res.json({ success: false, error: err.message });
+    });
+  } catch (error) {
+    res.json({ success: false, error: error.message });
+  }
+});
+
+// GET A/B test status
+app.get("/api/ab-test/status", (req, res) => {
+  try {
+    const abTestPath = path.join(DATA_DIR, "ab-test.json");
+    let abTest = null;
+    if (fs.existsSync(abTestPath)) {
+      abTest = JSON.parse(fs.readFileSync(abTestPath, "utf8"));
+    }
+    res.json({ success: true, abTest });
+  } catch (error) {
+    res.json({ success: false, error: error.message });
+  }
+});
+
+// POST start A/B test
+// Note: This intentionally creates a separate test harness (not wired to the live bot) by design.
+app.post("/api/ab-test/start", requireAuth, (req, res) => {
+  try {
+    const ABTester = require("../bot/backtesting/ab-tester");
+    const tester = new ABTester();
+    const result = tester.start(req.body);
+    addLog("info", "ab-test", `A/B test started: ${req.body.nameA || "A"} vs ${req.body.nameB || "B"}`);
+    res.json({ success: true, result, note: "A/B test started in separate harness. Results saved to ab-test.json." });
+  } catch (error) {
+    res.json({ success: false, error: error.message });
+  }
+});
+
+// POST configure alerts
+app.post("/api/alerts/config", requireAuth, (req, res) => {
+  try {
+    const alertConfig = req.body;
+    // Save alert config to main config
+    config.alerts = alertConfig;
+    saveConfig();
+    addLog("info", "alerts", "Alert configuration updated");
+    res.json({ success: true });
+  } catch (error) {
+    res.json({ success: false, error: error.message });
+  }
+});
+
+// POST send test alert
+app.post("/api/alerts/test", requireAuth, async (req, res) => {
+  try {
+    const AlertDispatcher = require("../bot/alerts/alert-dispatcher");
+    const dispatcher = new AlertDispatcher();
+    await dispatcher.initialize(config);
+    await dispatcher.sendTestAlert();
+    addLog("info", "alerts", "Test alert sent");
+    res.json({ success: true, message: "Test alert sent to configured channels" });
+  } catch (error) {
+    res.json({ success: false, error: error.message });
+  }
+});
+
+// GET alert history
+app.get("/api/alerts/history", requireAuth, (req, res) => {
+  try {
+    res.json({ success: true, alerts: aiStatus?.alertStatus?.recentAlerts || [] });
+  } catch (error) {
+    res.json({ success: false, error: error.message });
+  }
+});
+
+// POST set risk level
+app.post("/api/risk/level", requireAuth, (req, res) => {
+  try {
+    const { level } = req.body;
+    if (!["conservative", "balanced", "aggressive"].includes(level)) {
+      return res.json({ success: false, error: "Invalid risk level" });
+    }
+    config.ai = config.ai || {};
+    config.ai.riskLevel = level;
+    saveConfig();
+    io.emit("configUpdate", { key: "ai.riskLevel", value: level });
+    addLog("info", "risk", `Risk level changed to: ${level}`);
+    res.json({ success: true, level });
+  } catch (error) {
+    res.json({ success: false, error: error.message });
+  }
+});
+
+// POST reset circuit breaker
+app.post("/api/risk/reset-circuit-breaker", requireAuth, (req, res) => {
+  try {
+    addLog("info", "risk", "Circuit breaker manually reset");
+    io.emit("riskCommand", { action: "resetCircuitBreaker" });
+    res.json({ success: true, message: "Circuit breaker reset" });
+  } catch (error) {
+    res.json({ success: false, error: error.message });
+  }
+});
+
+// GET autonomous manager status
+app.get("/api/autonomous/status", requireAuth, (req, res) => {
+  try {
+    res.json({ success: true, status: aiStatus?.autonomousStatus || {} });
+  } catch (error) {
+    res.json({ success: false, error: error.message });
+  }
+});
+
 // GET health check
 app.get("/api/health", (req, res) => {
   res.json({
@@ -1000,6 +1766,24 @@ app.get("/api/health", (req, res) => {
 // ============ WEBSOCKET ============
 
 io.on("connection", (socket) => {
+  // Authenticate socket connection
+  const token = socket.handshake.auth?.token || socket.handshake.headers?.authorization?.replace('Bearer ', '');
+  if (token) {
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET);
+      socket.user = decoded;
+    } catch (err) {
+      // Token invalid — socket.user remains undefined
+    }
+  }
+
+  // Reject unauthenticated connections when setup is complete
+  const auth = loadAuth();
+  if (!socket.user && auth.setupComplete) {
+    socket.disconnect(true);
+    return;
+  }
+
   addLog("system", "server", "Client connected via WebSocket");
   socket.emit("botStatus", getBotStatuses());
   socket.emit("stats", stats);
@@ -1016,9 +1800,24 @@ setInterval(() => {
   if (stats.startTime) {
     stats.uptime = Math.floor((Date.now() - stats.startTime) / 1000);
   }
-  io.emit("stats", stats);
-  io.emit("aiStatus", aiStatus);
-  io.emit("tradeStats", tradeStats);
+  // Only emit to authenticated sockets
+  io.sockets.sockets.forEach((socket) => {
+    if (!socket.user) return;
+    socket.emit("stats", stats);
+    socket.emit("aiStatus", aiStatus);
+    socket.emit("tradeStats", tradeStats);
+
+    // Phase A: broadcast market signals and risk status
+    if (aiStatus?.marketSignals) {
+      socket.emit("marketSignals", aiStatus.marketSignals);
+    }
+    if (aiStatus?.riskStatus) {
+      socket.emit("riskStatus", aiStatus.riskStatus);
+    }
+    if (aiStatus?.pendingAdvisories) {
+      socket.emit("advisories", aiStatus.pendingAdvisories);
+    }
+  });
 }, 5000);
 
 // ============ GRACEFUL SHUTDOWN ============

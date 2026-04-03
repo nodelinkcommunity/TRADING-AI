@@ -136,6 +136,7 @@ class StablecoinScanner {
 
         // Dieu chinh amount theo decimals
         const amountA = ethers.parseUnits("10000", tokenA.decimals);
+
         const amountB = ethers.parseUnits("10000", tokenB.decimals);
 
         // Lay gia A -> B tren V3
@@ -146,13 +147,23 @@ class StablecoinScanner {
           500 // 0.05% fee tier (tot cho stables)
         );
 
-        // Lay gia B -> A tren V3
+        // Lay gia B -> A tren V3 (fixed 10000 input, for deviation metric)
         const priceBA_v3 = await this.getV3Price(
           tokenB.address,
           tokenA.address,
           amountB,
           500
         );
+
+        // True round-trip: use actual A->B output as input for B->A
+        const roundTripBA = priceAB_v3
+          ? await this.getV3Price(
+              tokenB.address,
+              tokenA.address,
+              priceAB_v3,
+              500
+            )
+          : null;
 
         // Tinh chenh lech
         if (priceAB_v3 && priceBA_v3) {
@@ -166,12 +177,15 @@ class StablecoinScanner {
 
           // Kiem tra co hoi 2 chieu (round-trip)
           // Mua A->B roi B->A, kiem tra con du tra flashloan khong
-          const roundTrip = this.calculateRoundTrip(
-            amountA,
-            priceAB_v3,
-            tokenA.decimals,
-            tokenB.decimals
-          );
+          const roundTrip = roundTripBA
+            ? this.calculateRoundTrip(
+                amountA,
+                priceAB_v3,
+                roundTripBA,
+                tokenA.decimals,
+                tokenB.decimals
+              )
+            : "0.00";
 
           results.push({
             pair: `${nameA}/${nameB}`,
@@ -204,11 +218,16 @@ class StablecoinScanner {
     return Number(ethers.formatUnits(amount, decimals));
   }
 
-  calculateRoundTrip(amountIn, priceAB, decimalsA, decimalsB) {
-    // Don gian hoa: tinh % chenh lech round-trip
-    const normalizedOut = Number(ethers.formatUnits(priceAB, decimalsB));
+  calculateRoundTrip(amountIn, priceAB, priceBA, decimalsA, decimalsB) {
+    // True round-trip: A->B then B->A
     const normalizedIn = Number(ethers.formatUnits(amountIn, decimalsA));
-    const ratio = normalizedOut / normalizedIn;
+    const amountB = Number(ethers.formatUnits(priceAB, decimalsB)); // A->B gives amountB
+    const amountBackA = Number(ethers.formatUnits(priceBA, decimalsA)); // B->A gives amountBackA
+
+    if (normalizedIn === 0) return "0.00";
+
+    // Profit ratio from round-trip
+    const ratio = amountBackA / normalizedIn;
 
     // Flashloan fee: 0.05%, swap fee: 0.05% x 2
     const totalFees = 0.0005 + 0.0005 * 2;
@@ -387,7 +406,7 @@ class StablecoinBot {
 // ============ Entry Point ============
 
 async function main() {
-  const chain = process.argv[2] || "arbitrum";
+  const chain = process.env.BOT_CHAIN || process.argv[2] || "arbitrum";
   const bot = new StablecoinBot(chain);
   await bot.start(10000);
 }

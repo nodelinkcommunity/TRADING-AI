@@ -319,12 +319,19 @@ class LiquidationCalculator {
   }
 }
 
+const LIQUIDATION_EXECUTOR_ABI = [
+  "function executeLiquidation(address _debtAsset, uint256 _debtAmount, bytes calldata _params) external",
+];
+
 class LiquidationExecutor {
   constructor(provider, wallet, aavePoolAddress, flashloanContractAddress) {
     this.provider = provider;
     this.wallet = wallet;
     this.pool = new ethers.Contract(aavePoolAddress, AAVE_POOL_ABI, wallet);
-    this.flashloanContract = flashloanContractAddress;
+    this.flashloanContractAddress = flashloanContractAddress;
+    this.flashloanContract = flashloanContractAddress
+      ? new ethers.Contract(flashloanContractAddress, LIQUIDATION_EXECUTOR_ABI, wallet)
+      : null;
     this.executionHistory = [];
   }
 
@@ -359,36 +366,75 @@ class LiquidationExecutor {
     }
 
     try {
-      // Uoc tinh gas
-      const gasEstimate = await this.pool.liquidationCall.estimateGas(
-        opportunity.collateralAsset,
-        opportunity.debtAsset,
-        opportunity.user,
-        opportunity.debtToCover,
-        false // receiveAToken = false (nhan underlying token)
-      );
-
       const feeData = await this.provider.getFeeData();
-      const gasCost = gasEstimate * feeData.gasPrice;
+      let tx;
 
-      console.log(`Gas estimate: ${gasEstimate.toString()}`);
-      console.log(`Gas cost: ${ethers.formatEther(gasCost)} ETH`);
+      if (this.flashloanContract) {
+        // Use flashloan contract: no upfront capital needed
+        console.log(`Using flashloan contract: ${this.flashloanContractAddress}`);
 
-      // TODO: Trong phien ban production, su dung flashloan contract
-      // de khong can von. Hien tai goi truc tiep liquidationCall
+        // Encode LiquidationParams struct for the flashloan callback
+        const params = ethers.AbiCoder.defaultAbiCoder().encode(
+          ["tuple(address,address,address,uint256,bool,uint24)"],
+          [[
+            opportunity.collateralAsset,
+            opportunity.debtAsset,
+            opportunity.user,
+            opportunity.debtToCover,
+            true,   // useV3
+            3000,   // default fee tier
+          ]]
+        );
 
-      const tx = await this.pool.liquidationCall(
-        opportunity.collateralAsset,
-        opportunity.debtAsset,
-        opportunity.user,
-        opportunity.debtToCover,
-        false,
-        {
-          gasLimit: (gasEstimate * 130n) / 100n, // 30% buffer
-          maxFeePerGas: feeData.maxFeePerGas,
-          maxPriorityFeePerGas: feeData.maxPriorityFeePerGas,
-        }
-      );
+        const gasEstimate = await this.flashloanContract.executeLiquidation.estimateGas(
+          opportunity.debtAsset,
+          opportunity.debtToCover,
+          params
+        );
+
+        const gasCost = gasEstimate * feeData.gasPrice;
+        console.log(`Gas estimate: ${gasEstimate.toString()}`);
+        console.log(`Gas cost: ${ethers.formatEther(gasCost)} ETH`);
+
+        tx = await this.flashloanContract.executeLiquidation(
+          opportunity.debtAsset,
+          opportunity.debtToCover,
+          params,
+          {
+            gasLimit: (gasEstimate * 130n) / 100n,
+            maxFeePerGas: feeData.maxFeePerGas,
+            maxPriorityFeePerGas: feeData.maxPriorityFeePerGas,
+          }
+        );
+      } else {
+        // Fallback: direct liquidation call from EOA (requires holding debt tokens)
+        console.warn("[WARNING] No flashloan contract configured. Falling back to direct liquidationCall from EOA. This requires the wallet to hold sufficient debt tokens.");
+
+        const gasEstimate = await this.pool.liquidationCall.estimateGas(
+          opportunity.collateralAsset,
+          opportunity.debtAsset,
+          opportunity.user,
+          opportunity.debtToCover,
+          false
+        );
+
+        const gasCost = gasEstimate * feeData.gasPrice;
+        console.log(`Gas estimate: ${gasEstimate.toString()}`);
+        console.log(`Gas cost: ${ethers.formatEther(gasCost)} ETH`);
+
+        tx = await this.pool.liquidationCall(
+          opportunity.collateralAsset,
+          opportunity.debtAsset,
+          opportunity.user,
+          opportunity.debtToCover,
+          false,
+          {
+            gasLimit: (gasEstimate * 130n) / 100n,
+            maxFeePerGas: feeData.maxFeePerGas,
+            maxPriorityFeePerGas: feeData.maxPriorityFeePerGas,
+          }
+        );
+      }
 
       console.log(`TX sent: ${tx.hash}`);
       const receipt = await tx.wait(1);
@@ -456,11 +502,17 @@ class LiquidationBot {
 
     // Setup executor
     if (this.wallet) {
+      const flashloanAddress = process.env.FLASHLOAN_CONTRACT_ADDRESS || null;
+      if (!flashloanAddress) {
+        console.warn("[WARNING] FLASHLOAN_CONTRACT_ADDRESS not set. Bot will fall back to direct EOA liquidation (requires holding debt tokens).");
+      } else {
+        console.log(`Flashloan contract: ${flashloanAddress}`);
+      }
       this.executor = new LiquidationExecutor(
         this.provider,
         this.wallet,
         this.chainConfig.aavePool,
-        null // flashloan contract address
+        flashloanAddress
       );
     }
 
@@ -519,10 +571,11 @@ class LiquidationBot {
           );
 
           if (this.executor) {
-            // Dry run mac dinh - dat autoExecute trong config de chay that
+            // Respect PAPER_TRADING env var; default to dry run for safety
+            const dryRun = process.env.PAPER_TRADING !== 'false';
             const result = await this.executor.executeLiquidation(
               best,
-              true // dryRun = true
+              dryRun
             );
 
             if (result.success) {
@@ -575,7 +628,7 @@ class LiquidationBot {
 // ============ Entry Point ============
 
 async function main() {
-  const chain = process.argv[2] || "arbitrum";
+  const chain = process.env.BOT_CHAIN || process.argv[2] || "arbitrum";
   const bot = new LiquidationBot(chain);
 
   try {

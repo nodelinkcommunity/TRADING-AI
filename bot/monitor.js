@@ -357,8 +357,10 @@ class ArbitrageExecutor {
   /**
    * Encode cac buoc swap thanh bytes de truyen vao contract
    */
-  encodeSwapSteps(steps) {
+  encodeSwapSteps(steps, maxSlippageBps) {
     const abiCoder = ethers.AbiCoder.defaultAbiCoder();
+    const slippageBps = maxSlippageBps || 50; // default 50 bps = 0.5%
+    const slippageMultiplier = BigInt(10000 - slippageBps);
 
     const encodedSteps = steps.map((step) => ({
       dexName: step.dex,
@@ -366,7 +368,7 @@ class ArbitrageExecutor {
       tokenOut: step.tokenOut,
       fee: step.fee,
       isV3: step.type === "v3",
-      amountOutMin: step.expectedOut ? (step.expectedOut * 995n) / 1000n : 0n, // 0.5% slippage
+      amountOutMin: step.expectedOut ? (step.expectedOut * slippageMultiplier) / 10000n : 0n,
     }));
 
     return abiCoder.encode(
@@ -388,7 +390,7 @@ class ArbitrageExecutor {
 
     try {
       // Encode params
-      const params = this.encodeSwapSteps(opportunity.steps);
+      const params = this.encodeSwapSteps(opportunity.steps, opportunity.maxSlippageBps);
 
       // Build args — BSC needs 5 params (token, amount, params, pairedToken, poolFee)
       let execArgs;
@@ -635,10 +637,11 @@ class FlashloanBot {
       console.log("⚠️  No contract address — Monitor-only mode (no execution)");
     }
 
-    // Initialize AI Engine
+    // Initialize AI Engine v2 (with Phase A modules)
     try {
       this.ai = new AIEngine(this.provider);
-      await this.ai.initialize();
+      await this.ai.initialize(this.config);
+      console.log("[AI] AI Engine v2 initialized with Phase A modules");
     } catch (aiError) {
       console.warn("[AI] AI Engine failed to initialize:", aiError.message);
       this.ai = null;
@@ -728,7 +731,7 @@ class FlashloanBot {
         `Best: ${best.type} | Profit: ${best.profitBps} bps | Steps: ${best.steps.length}`
       );
 
-      // AI Analysis
+      // AI Analysis (enhanced with Phase A: risk engine, autonomous adjustments)
       let aiAnalysis = null;
       if (this.ai) {
         try {
@@ -741,6 +744,40 @@ class FlashloanBot {
           console.log(
             `[AI] Score: ${aiAnalysis.score}/100 | ${aiAnalysis.recommendation.action} | ${aiAnalysis.reasoning}`
           );
+
+          // Enforce risk assessment: block opportunity if risk engine rejects it
+          if (aiAnalysis.riskAssessment && !aiAnalysis.riskAssessment.allowed) {
+            console.log(`[RISK] Blocked: ${aiAnalysis.riskAssessment.reasons.join(', ')}`);
+            aiAnalysis.shouldExecute = false; // Prevent execution downstream
+          }
+
+          // Apply maxFlashAmount from risk engine (advisory only - units differ)
+          // best.flashAmount is in raw token units (bigint from ethers.parseUnits),
+          // but riskMaxFlash is in USD. Direct comparison/assignment is invalid
+          // without an oracle price conversion.
+          if (aiAnalysis.riskAssessment?.adjustments?.maxFlashAmount) {
+            const riskMaxFlashUSD = aiAnalysis.riskAssessment.adjustments.maxFlashAmount;
+            console.log(`[RISK] Recommended max flash: $${riskMaxFlashUSD} USD (advisory - token amount not modified, requires oracle for conversion)`);
+          }
+
+          // Apply maxSlippageBps from autonomous manager to execution parameters
+          if (aiAnalysis.adjustedParams?.maxSlippageBps) {
+            best.maxSlippageBps = aiAnalysis.adjustedParams.maxSlippageBps;
+            console.log(`[AUTO] Slippage limit set to ${best.maxSlippageBps} bps`);
+          }
+
+          // Log autonomous adjustments if changed
+          if (aiAnalysis.adjustedParams && Object.keys(aiAnalysis.adjustedParams).length > 0) {
+            const ap = aiAnalysis.adjustedParams;
+            if (ap.minProfitBps !== this.config.minProfitBps) {
+              console.log(`[AUTO] Min profit adjusted: ${this.config.minProfitBps} -> ${ap.minProfitBps} bps`);
+            }
+          }
+
+          // Log market signals
+          if (aiAnalysis.signals && aiAnalysis.signals.length > 0) {
+            console.log(`[SIGNAL] ${aiAnalysis.signals.length} active signals: ${aiAnalysis.signals.map(s => s.type).join(', ')}`);
+          }
 
           // Feed price data to market analyzer
           for (const step of best.steps) {
@@ -757,28 +794,39 @@ class FlashloanBot {
         }
       }
 
+      // Determine effective min profit (may be adjusted by autonomous manager)
+      const effectiveMinProfit = aiAnalysis?.adjustedParams?.minProfitBps || this.config.minProfitBps;
+
       // Determine execution mode
       const isPaperMode = process.env.PAPER_TRADING === "true" || !this.config.autoExecute;
       const aiApproved = !aiAnalysis || aiAnalysis.shouldExecute;
 
-      if (best.profitBps >= this.config.minProfitBps) {
+      if (best.profitBps >= effectiveMinProfit) {
         if (isPaperMode) {
           // Paper Trading: simulate without executing on-chain
           await this.simulatePaperTrade(best, aiAnalysis);
         } else if (this.executor && aiApproved) {
           // LIVE Trading: execute real transaction
+          // Track active position for correlation risk
+          const correlationRisk = this.ai?.riskEngine?.correlationRisk;
+          if (correlationRisk) correlationRisk.addActivePosition(best);
+
           const result = await this.executor.execute(best);
+
+          // Remove active position after execution completes
+          if (correlationRisk) correlationRisk.removeActivePosition(best);
+
           if (result) {
             // Output structured log for server to parse as real trade
-            const pair = this.config.tokenPairs?.[0]?.name?.split(' ')[0] || 'WETH/USDC';
+            const pair = this.findPairForOpportunity(best).name?.split(' ')[0] || 'WETH/USDC';
             const chain = this.config.chain || 'arbitrumSepolia';
             if (result.success) {
               this.stats.tradesExecuted++;
-              console.log(`[TRADE] EXECUTED | success:true | txHash:${result.txHash} | pair:${pair} | chain:${chain} | strategy:${best.type} | profitBps:${best.profitBps} | gasUsed:${result.gasUsed} | block:${result.blockNumber}`);
+              console.log(`[TRADE] EXECUTED | success:true | txHash:${result.txHash} | pair:${pair} | chain:${chain} | strategy:${best.type} | profitBps:${best.profitBps} | gasUsed:${result.gasUsed} | block:${result.blockNumber} | aiScore:${aiAnalysis?.score || '-'} | riskScore:${aiAnalysis?.riskAssessment?.riskScore || '-'}`);
             } else {
               console.log(`[TRADE] FAILED | success:false | pair:${pair} | chain:${chain} | strategy:${best.type} | error:${result.error || 'reverted'}`);
             }
-            // Record result for AI learning
+            // Record result for AI learning + risk tracking
             if (this.ai) this.ai.recordResult(best, result);
           }
         } else if (this.executor && !aiApproved) {
@@ -796,6 +844,25 @@ class FlashloanBot {
         );
       }
     }
+  }
+
+  /**
+   * Find the pair name from an opportunity object instead of hardcoding tokenPairs[0]
+   */
+  findPairForOpportunity(opportunity) {
+    if (opportunity.pairName) return { name: opportunity.pairName };
+    const tokenIn = opportunity.steps?.[0]?.tokenIn;
+    const tokenOut = opportunity.steps?.[0]?.tokenOut;
+    if (tokenIn && tokenOut && this.config.tokenPairs) {
+      const match = this.config.tokenPairs.find(p =>
+        (p.tokenA === tokenIn && p.tokenB === tokenOut) ||
+        (p.tokenA === tokenOut && p.tokenB === tokenIn)
+      );
+      if (match) return match;
+    }
+    // Fallback: try opportunity.pair or first configured pair
+    if (opportunity.pair) return { name: opportunity.pair };
+    return this.config.tokenPairs?.[0] || { name: 'WETH/USDC' };
   }
 
   async simulatePaperTrade(opportunity, aiAnalysis) {
@@ -827,7 +894,8 @@ class FlashloanBot {
       const step0 = opportunity.steps[0];
       const step1 = opportunity.steps[1];
       const flashAmount = opportunity.flashAmount;
-      const decimalsA = this.config.tokenPairs?.[0]?.decimals || 18;
+      const matchedPair = this.findPairForOpportunity(opportunity);
+      const decimalsA = matchedPair.decimals || 18;
       const flashAmountFloat = parseFloat(ethers.formatUnits(flashAmount, decimalsA));
 
       // Lookup tokenB decimals dynamically (don't assume 6 for USDC — varies by chain/token)
@@ -840,8 +908,8 @@ class FlashloanBot {
         }
       } catch (_) {
         // Fallback: check known stablecoin patterns
-        const pairName = this.config.tokenPairs?.[0]?.name || '';
-        decimalsB = /USDC|USDT/.test(pairName) ? 6 : 18;
+        const fallbackPairName = matchedPair.name || '';
+        decimalsB = /USDC|USDT/.test(fallbackPairName) ? 6 : 18;
       }
 
       // Real price = amountOut / amountIn (from actual DEX quotes)
@@ -860,8 +928,8 @@ class FlashloanBot {
       if (buyPrice === 0) buyPrice = nativePrice;
       if (sellPrice === 0) sellPrice = nativePrice * (1 + profitBps / 10000);
 
-      // Get pair name from actual config
-      const pairName = this.config.tokenPairs?.[0]?.name?.split(' ')[0] || 'WETH/USDC';
+      // Get pair name from opportunity
+      const pairName = matchedPair.name?.split(' ')[0] || 'WETH/USDC';
       const aiScore = aiAnalysis?.score || 0;
       const strategy = opportunity.type === 'TRIANGULAR' ? 'triangular' : 'dexArbitrage';
       const success = netProfitUsd > 0;
@@ -903,6 +971,17 @@ class FlashloanBot {
       this.stop();
     });
 
+    // Periodic AI status broadcast (every 10 seconds)
+    this._aiStatusInterval = setInterval(() => {
+      if (this.ai && this.ai.isRunning) {
+        try {
+          const status = this.ai.getStatus();
+          // Output as parseable JSON line for server
+          console.log("AI_STATUS:" + JSON.stringify(status));
+        } catch (_) {}
+      }
+    }, 10000);
+
     // Main loop
     while (this.isRunning) {
       try {
@@ -911,9 +990,10 @@ class FlashloanBot {
         console.error(`Scan error: ${error.message}`);
       }
 
-      // Doi truoc khi scan tiep
+      // Wait before next scan (may be adjusted by autonomous manager)
+      const interval = this.ai?.autonomousManager?.getCurrentParams()?.scanIntervalMs || this.config.scanIntervalMs || 3000;
       await new Promise((resolve) =>
-        setTimeout(resolve, this.config.scanIntervalMs || 3000)
+        setTimeout(resolve, interval)
       );
     }
   }
@@ -921,7 +1001,13 @@ class FlashloanBot {
   stop() {
     this.isRunning = false;
 
-    // Stop AI engine
+    // Stop AI status broadcast
+    if (this._aiStatusInterval) {
+      clearInterval(this._aiStatusInterval);
+      this._aiStatusInterval = null;
+    }
+
+    // Stop AI engine (v2 with Phase A modules)
     if (this.ai) {
       try { this.ai.stop(); } catch (_) {}
     }
