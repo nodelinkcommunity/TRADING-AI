@@ -924,14 +924,23 @@ class FlashloanBot {
       if (buyPrice === 0) buyPrice = nativePrice;
       if (sellPrice === 0) sellPrice = nativePrice * (1 + profitBps / 10000);
 
+      // Calculate NET profit BPS (after gas) — this is the real metric
+      const netProfitBps = Math.round((netProfitUsd / volumeUsd) * 10000);
+
       // Get pair name from opportunity
       const pairName = matchedPair.name?.split(' ')[0] || 'WETH/USDC';
       const aiScore = aiAnalysis?.score || 0;
       const strategy = opportunity.type === 'TRIANGULAR' ? 'triangular' : 'dexArbitrage';
       const success = netProfitUsd > 0;
 
+      // Skip logging unprofitable paper trades (net BPS negative after gas)
+      if (!success) {
+        console.log(`[PAPER] SKIP (net loss after gas) | strategy:${strategy} | pair:${pairName} | grossBps:${profitBps} | netBps:${netProfitBps} | gasCost:$${gasCostUsd.toFixed(4)}`);
+        return { success: false, netProfitUsd, gasCostUsd, profitBps: netProfitBps };
+      }
+
       // Output structured log for server to parse
-      console.log(`[PAPER] ${success ? 'PROFIT' : 'LOSS'} | strategy:${strategy} | pair:${pairName} | chain:${chain} | volume:${volumeUsd.toFixed(2)} | buyPrice:${buyPrice.toFixed(2)} | sellPrice:${sellPrice.toFixed(2)} | gasCost:${gasCostUsd.toFixed(4)} | profit:${netProfitUsd.toFixed(4)} | profitBps:${profitBps} | aiScore:${aiScore} | steps:${opportunity.steps.map(s => s.dex).join('>')} | dexBuy:${step0?.dex || ''} | dexSell:${step1?.dex || ''}`);
+      console.log(`[PAPER] PROFIT | strategy:${strategy} | pair:${pairName} | chain:${chain} | volume:${volumeUsd.toFixed(2)} | buyPrice:${buyPrice.toFixed(2)} | sellPrice:${sellPrice.toFixed(2)} | gasCost:${gasCostUsd.toFixed(4)} | profit:${netProfitUsd.toFixed(4)} | profitBps:${netProfitBps} | aiScore:${aiScore} | steps:${opportunity.steps.map(s => s.dex).join('>')} | dexBuy:${step0?.dex || ''} | dexSell:${step1?.dex || ''}`);
 
       this.stats.paperTrades = (this.stats.paperTrades || 0) + 1;
       this.stats.paperProfit = (this.stats.paperProfit || 0) + netProfitUsd;
