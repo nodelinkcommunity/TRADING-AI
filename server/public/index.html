@@ -254,10 +254,11 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,
 
   <div class="sb-section">Operations</div>
   <button class="sb-btn" onclick="navigate('bots')"><span class="icon">&#9889;</span> Bot Control <span class="dot dot-off" id="dotAll"></span></button>
+  <button class="sb-btn" onclick="navigate('ai')"><span class="icon">&#129504;</span> AI Insights</button>
   <button class="sb-btn" onclick="navigate('logs')"><span class="icon">&#9776;</span> Live Logs</button>
   <button class="sb-btn" onclick="navigate('stats')"><span class="icon">&#9670;</span> Analytics</button>
-  <button class="sb-btn" onclick="navigate('trades')"><span class="icon">&#128203;</span> Trade History</button>
-  <button class="sb-btn" onclick="navigate('ai')"><span class="icon">&#129504;</span> AI Insights</button>
+  <button class="sb-btn" onclick="navigate('trades')"><span class="icon">&#128203;</span> Trading History</button>
+  <button class="sb-btn" onclick="navigate('simulated')"><span class="icon">&#128202;</span> Simulated Transactions</button>
 </div>
 
 <!-- ===== MAIN CONTENT ===== -->
@@ -365,7 +366,22 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,
 
   <div class="card">
     <div class="card-header">
-      <div><div class="card-title">Step 1 &mdash; Wallet & RPC Credentials</div><div class="card-subtitle">Required before deploying contracts or running bots</div></div>
+      <div><div class="card-title">Step 1 &mdash; Select Network & Credentials</div><div class="card-subtitle">Choose the network to deploy, then enter your credentials</div></div>
+    </div>
+    <div class="fg" style="margin-bottom:12px">
+      <label class="fl">Target Network</label>
+      <select id="setupChainSelect" onchange="onSetupChainChange()" style="width:100%;max-width:400px;padding:10px 12px;background:var(--bg1);color:var(--text1);border:1px solid var(--border);border-radius:8px;font-size:14px">
+        <option value="arbitrum">Arbitrum One (Mainnet)</option>
+        <option value="base">Base (Mainnet)</option>
+        <option value="polygon">Polygon (Mainnet)</option>
+        <option value="bsc">BSC / BNB Chain (Mainnet)</option>
+        <option value="avalanche">Avalanche C-Chain (Mainnet)</option>
+        <option value="mantle">Mantle (Mainnet)</option>
+        <option value="scroll">Scroll (Mainnet)</option>
+        <option value="arbitrumSepolia">Arbitrum Sepolia (Testnet)</option>
+        <option value="baseSepolia">Base Sepolia (Testnet)</option>
+      </select>
+      <div class="fh" id="setupChainInfo" style="margin-top:6px;font-size:12px">Gas token: <b>ETH</b> &nbsp;|&nbsp; Flash Loan: <b>Aave V3</b></div>
     </div>
     <div class="g2">
       <div class="fg">
@@ -374,8 +390,8 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,
         <div class="fh">Export from MetaMask: Account &rarr; Export Private Key. Use a dedicated bot wallet only.</div>
       </div>
       <div class="fg">
-        <label class="fl">RPC URL (<span id="rpcChainLabel">Arbitrum</span>)</label>
-        <input type="text" id="inRPC" placeholder="https://arb-sepolia.g.alchemy.com/v2/YOUR_KEY">
+        <label class="fl">RPC URL (<span id="rpcChainLabel">Arbitrum One</span>)</label>
+        <input type="text" id="inRPC" placeholder="https://arb-mainnet.g.alchemy.com/v2/YOUR_KEY">
         <div class="fh">Get from Alchemy, Infura, or QuickNode dashboard.</div>
       </div>
     </div>
@@ -1137,7 +1153,7 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,
 <!-- ========== TRADE HISTORY ========== -->
 <div class="panel" id="p-trades">
   <div class="page-title" style="display:flex;align-items:center;justify-content:space-between">
-    <span>Trade History</span>
+    <span>Trading History</span>
     <div style="display:flex;gap:8px">
       <button class="btn btn-warning btn-sm" onclick="generateTestTrade()">Generate Test Trade</button>
       <button class="btn btn-ghost btn-sm" onclick="exportTradesCSV()">Export CSV</button>
@@ -1194,6 +1210,78 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,
   </div>
 
   <div class="pagination" id="tradePagination"></div>
+</div>
+
+<!-- ========== SIMULATED TRANSACTIONS ========== -->
+<div class="panel" id="p-simulated">
+  <div class="page-title" style="display:flex;align-items:center;justify-content:space-between">
+    <span>Simulated Transactions</span>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-warning btn-sm" onclick="generateTestTrade()">Generate Test</button>
+      <button class="btn btn-ghost btn-sm" onclick="exportSimCSV()">Export CSV</button>
+    </div>
+  </div>
+  <div class="page-desc">Paper trading results — bot tìm cơ hội thật, giả lập giao dịch theo tham số đã đặt. Đánh giá hiệu quả trước khi giao dịch thật.</div>
+
+  <div class="g4" style="margin-bottom:16px">
+    <div class="kpi" style="border-color:var(--yellow)">
+      <div class="kpi-label" style="color:var(--yellow)">Total Simulated</div>
+      <div class="kpi-value" id="simTotal" style="color:var(--yellow)">0</div>
+    </div>
+    <div class="kpi" style="border-color:var(--green)">
+      <div class="kpi-label">Win Rate</div>
+      <div class="kpi-value" id="simWinRate" style="color:var(--green)">0%</div>
+    </div>
+    <div class="kpi" style="border-color:var(--green)">
+      <div class="kpi-label">Simulated Profit</div>
+      <div class="kpi-value" id="simProfit" style="color:var(--green)">$0.00</div>
+    </div>
+    <div class="kpi" style="border-color:var(--text3)">
+      <div class="kpi-label">Total Volume</div>
+      <div class="kpi-value" id="simVolume" style="color:var(--text2)">$0</div>
+    </div>
+  </div>
+
+  <div class="trade-filters">
+    <div class="tab-group" style="margin-bottom:0">
+      <button class="tab-btn active" onclick="filterSim('all',this)">All</button>
+      <button class="tab-btn" style="color:var(--green)" onclick="filterSim('profit',this)">Profitable</button>
+      <button class="tab-btn" style="color:var(--red)" onclick="filterSim('loss',this)">Loss</button>
+    </div>
+    <select id="simStrategyFilter" onchange="loadSimTrades(1)">
+      <option value="">All Strategies</option>
+      <option value="dexArbitrage">DEX Arbitrage</option>
+      <option value="triangular">Triangular</option>
+      <option value="liquidation">Liquidation</option>
+      <option value="stablecoin">Stablecoin</option>
+    </select>
+  </div>
+
+  <div style="overflow-x:auto">
+    <table class="data-table" id="simTable">
+      <thead><tr>
+        <th>#</th>
+        <th>Time</th>
+        <th>Strategy</th>
+        <th>Chain</th>
+        <th>Pair</th>
+        <th>DEX Route</th>
+        <th class="right">Volume</th>
+        <th class="right">Buy Price</th>
+        <th class="right">Sell Price</th>
+        <th class="right">Gas Cost</th>
+        <th class="right">Net Profit</th>
+        <th class="right">Profit BPS</th>
+        <th class="right">AI Score</th>
+        <th>Result</th>
+      </tr></thead>
+      <tbody id="simTableBody">
+        <tr class="empty-row"><td colspan="14">No simulated transactions yet. Start bot with Paper Trading ON to see results here.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="pagination" id="simPagination"></div>
 </div>
 
 <!-- ========== AI INSIGHTS ========== -->
@@ -1367,31 +1455,65 @@ let currentFilter='';
 let state={};
 
 // ===== NAVIGATION =====
+const _chainNames={
+  arbitrum:"Arbitrum One",arbitrumSepolia:"Arbitrum Sepolia",
+  base:"Base",baseSepolia:"Base Sepolia",
+  polygon:"Polygon",bsc:"BSC (BNB Chain)",
+  avalanche:"Avalanche",mantle:"Mantle",scroll:"Scroll",
+};
+const _rpcPlaceholders={
+  arbitrum:"https://arb-mainnet.g.alchemy.com/v2/YOUR_KEY",
+  arbitrumSepolia:"https://arb-sepolia.g.alchemy.com/v2/YOUR_KEY",
+  base:"https://base-mainnet.g.alchemy.com/v2/YOUR_KEY",
+  baseSepolia:"https://base-sepolia.g.alchemy.com/v2/YOUR_KEY",
+  polygon:"https://polygon-mainnet.g.alchemy.com/v2/YOUR_KEY",
+  bsc:"https://bsc-dataseed1.binance.org or Alchemy",
+  avalanche:"https://api.avax.network/ext/bc/C/rpc or Alchemy",
+  mantle:"https://rpc.mantle.xyz",
+  scroll:"https://rpc.scroll.io",
+};
+const _gasTokens={
+  arbitrum:"ETH",arbitrumSepolia:"ETH",base:"ETH",baseSepolia:"ETH",
+  polygon:"MATIC",bsc:"BNB",avalanche:"AVAX",mantle:"MNT",scroll:"ETH",
+};
+const _flashProviders={
+  arbitrum:"Aave V3",arbitrumSepolia:"Aave V3",base:"Aave V3",baseSepolia:"Aave V3",
+  polygon:"Aave V3",avalanche:"Aave V3",scroll:"Aave V3",mantle:"Lendle (Aave fork)",
+  bsc:"PancakeSwap V3",
+};
+
 function updateSetupLabels(){
-  const chainNames={
-    arbitrum:"Arbitrum One",arbitrumSepolia:"Arbitrum Sepolia",
-    base:"Base",baseSepolia:"Base Sepolia",
-    polygon:"Polygon",bsc:"BSC (BNB Chain)",
-    avalanche:"Avalanche",mantle:"Mantle",scroll:"Scroll",
-  };
-  const rpcPlaceholders={
-    arbitrum:"https://arb-mainnet.g.alchemy.com/v2/YOUR_KEY",
-    arbitrumSepolia:"https://arb-sepolia.g.alchemy.com/v2/YOUR_KEY",
-    base:"https://base-mainnet.g.alchemy.com/v2/YOUR_KEY",
-    baseSepolia:"https://base-sepolia.g.alchemy.com/v2/YOUR_KEY",
-    polygon:"https://polygon-mainnet.g.alchemy.com/v2/YOUR_KEY",
-    bsc:"https://bsc-dataseed1.binance.org or Alchemy",
-    avalanche:"https://api.avax.network/ext/bc/C/rpc or Alchemy",
-    mantle:"https://rpc.mantle.xyz",
-    scroll:"https://rpc.scroll.io",
-  };
   const chain=state?.config?.chain||"arbitrumSepolia";
-  const el1=document.getElementById("rpcChainLabel");
-  if(el1)el1.textContent=chainNames[chain]||chain;
-  const el2=document.getElementById("deployTargetLabel");
-  if(el2)el2.textContent=chainNames[chain]||chain;
-  const el3=document.getElementById("inRPC");
-  if(el3&&!el3.value)el3.placeholder=rpcPlaceholders[chain]||"https://...";
+  const sel=$('setupChainSelect');
+  if(sel)sel.value=chain;
+  _applySetupChain(chain);
+}
+
+function _applySetupChain(chain){
+  const el1=$('rpcChainLabel');
+  if(el1)el1.textContent=_chainNames[chain]||chain;
+  const el2=$('deployTargetLabel');
+  if(el2)el2.textContent=_chainNames[chain]||chain;
+  const el3=$('inRPC');
+  if(el3&&!el3.value)el3.placeholder=_rpcPlaceholders[chain]||"https://...";
+  // Show gas token and flash provider info
+  const el4=$('setupChainInfo');
+  if(el4)el4.innerHTML='Gas token: <b>'+(_gasTokens[chain]||'ETH')+'</b> &nbsp;|&nbsp; Flash Loan: <b>'+(_flashProviders[chain]||'Aave V3')+'</b>';
+}
+
+async function onSetupChainChange(){
+  const sel=$('setupChainSelect');
+  if(!sel)return;
+  const chain=sel.value;
+  // Clear RPC input so placeholder updates
+  $('inRPC').value='';
+  _applySetupChain(chain);
+  // Save the selected chain to config
+  const res=await apiCall('config','POST',{chain:chain,chains:[chain]});
+  if(res&&res.success){
+    state.config=res.config||{...state.config,chain:chain};
+    renderContractsTable();
+  }
 }
 
 function renderContractsTable(){
@@ -1433,6 +1555,7 @@ function navigate(name){
   if(event&&event.currentTarget&&event.currentTarget.classList)event.currentTarget.classList.add('active');
   // Load trades when navigating to trades panel
   if(name==='trades')loadTrades(tradePage);
+  if(name==='simulated')loadSimTrades(1);
   // Update setup labels when navigating to setup
   if(name==='setup')updateSetupLabels();
 }
@@ -2018,6 +2141,7 @@ const stratColors={dexArbitrage:'var(--accent)',triangular:'var(--accent2)',liqu
 
 function updateDashboardStats(s){
   if(!s)return;
+  state.tradeStats=s;
   const el=id=>$(id);
   el('statTotalTrades').textContent=s.totalTrades||0;
   el('statTotalTradesSub').textContent='Today: '+(s.todayTrades||0);
@@ -2166,12 +2290,134 @@ function exportTradesCSV(){
   });
 }
 
+// ===== SIMULATED TRANSACTIONS =====
+let simFilter='all';
+let simPage=1;
+
+function filterSim(filter,btn){
+  simFilter=filter;
+  simPage=1;
+  if(btn){
+    btn.closest('.tab-group').querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+  }
+  loadSimTrades(1);
+}
+
+async function loadSimTrades(page){
+  page=page||1;
+  simPage=page;
+  const strategy=$('simStrategyFilter')?$('simStrategyFilter').value:'';
+  // Load only paper trades
+  const params='trades?page='+page+'&limit=20&filter=paper'+(strategy?'&strategy='+strategy:'');
+  const res=await apiCall(params,'GET');
+  if(res&&res.success){
+    // Client-side filter for profit/loss
+    let filtered=res.trades;
+    if(simFilter==='profit')filtered=filtered.filter(t=>t.profitUsd>0);
+    else if(simFilter==='loss')filtered=filtered.filter(t=>t.profitUsd<=0);
+    renderSimTable(filtered,res.total,page,res.totalPages);
+    updateSimStats(res);
+  }
+}
+
+function updateSimStats(res){
+  // Use tradeStats from server for paper stats
+  const ts=state.tradeStats||{};
+  const el=id=>document.getElementById(id);
+  if(el('simTotal'))el('simTotal').textContent=ts.paperTrades||0;
+  if(el('simWinRate'))el('simWinRate').textContent=(ts.paperWinRate||0).toFixed(1)+'%';
+  if(el('simProfit')){
+    const p=ts.paperProfitUsd||0;
+    el('simProfit').textContent=fmtUsd(p);
+    el('simProfit').style.color=p>=0?'var(--green)':'var(--red)';
+  }
+  // Calculate volume from trades
+  let vol=0;
+  if(res&&res.trades)res.trades.forEach(t=>vol+=(t.volumeUsd||0));
+  if(el('simVolume'))el('simVolume').textContent=fmtUsd(vol);
+}
+
+function renderSimTable(trades,total,page,totalPages){
+  const body=$('simTableBody');
+  if(!body)return;
+  if(!trades||trades.length===0){
+    body.innerHTML='<tr class="empty-row"><td colspan="14">No simulated transactions yet. Start bot with Paper Trading ON.</td></tr>';
+    $('simPagination').innerHTML='';
+    return;
+  }
+
+  const startNum=(page-1)*20;
+  body.innerHTML=trades.map((t,i)=>{
+    const profitColor=t.profitUsd>0?'var(--green)':'var(--red)';
+    const resultBadge=t.profitUsd>0?'<span class="badge badge-green">Profit</span>':'<span class="badge badge-red">Loss</span>';
+    const stratColor=stratColors[t.strategy]||'var(--text2)';
+    const dexRoute=(t.dexBuy&&t.dexSell)?t.dexBuy+' → '+t.dexSell:(t.steps||'--');
+
+    return '<tr>'+
+      '<td style="color:var(--text3)">'+(startNum+i+1)+'</td>'+
+      '<td style="white-space:nowrap;font-size:11px">'+fmtDate(t.timestamp)+'</td>'+
+      '<td><span style="color:'+stratColor+';font-weight:600;font-size:11px">'+(stratLabels[t.strategy]||t.strategy)+'</span></td>'+
+      '<td style="font-size:11px">'+(t.chain||'--')+'</td>'+
+      '<td style="font-weight:600">'+(t.pair||'--')+'</td>'+
+      '<td style="font-size:11px;color:var(--text2)">'+(dexRoute||'--')+'</td>'+
+      '<td class="right">'+fmtUsd(t.volumeUsd)+'</td>'+
+      '<td class="right">'+(t.buyPrice?'$'+t.buyPrice.toFixed(2):'--')+'</td>'+
+      '<td class="right">'+(t.sellPrice?'$'+t.sellPrice.toFixed(2):'--')+'</td>'+
+      '<td class="right" style="color:var(--orange)">'+fmtUsd(t.gasCostUsd)+'</td>'+
+      '<td class="right" style="color:'+profitColor+';font-weight:700">'+fmtUsd(t.profitUsd)+'</td>'+
+      '<td class="right" style="color:'+profitColor+'">'+(t.profitBps||0)+' bps</td>'+
+      '<td class="right">'+(t.aiScore?'<span style="color:var(--accent)">'+t.aiScore+'</span>':'--')+'</td>'+
+      '<td>'+resultBadge+'</td>'+
+    '</tr>';
+  }).join('');
+
+  // Pagination
+  let pHtml='';
+  if(totalPages>1){
+    pHtml+='<button '+(page<=1?'disabled':'')+' onclick="loadSimTrades('+(page-1)+')">&laquo; Prev</button>';
+    for(let p=1;p<=totalPages&&p<=7;p++){
+      pHtml+='<button class="'+(p===page?'active':'')+'" onclick="loadSimTrades('+p+')">'+p+'</button>';
+    }
+    if(totalPages>7)pHtml+='<span class="page-info">...</span><button onclick="loadSimTrades('+totalPages+')">'+totalPages+'</button>';
+    pHtml+='<button '+(page>=totalPages?'disabled':'')+' onclick="loadSimTrades('+(page+1)+')">Next &raquo;</button>';
+    pHtml+='<span class="page-info">Page '+page+' of '+totalPages+'</span>';
+  } else if(total>0){
+    pHtml='<span class="page-info">'+total+' simulated trade'+(total===1?'':'s')+'</span>';
+  }
+  $('simPagination').innerHTML=pHtml;
+}
+
+function exportSimCSV(){
+  apiCall('trades?page=1&limit=10000&filter=paper','GET').then(res=>{
+    if(!res||!res.trades||res.trades.length===0){alert('No simulated trades to export.');return;}
+    const headers=['Time','Strategy','Chain','Pair','DEX Buy','DEX Sell','Volume USD','Buy Price','Sell Price','Gas Cost USD','Net Profit USD','Profit BPS','AI Score','Result'];
+    const rows=res.trades.map(t=>[
+      new Date(t.timestamp).toISOString(),t.strategy,t.chain,t.pair,t.dexBuy||'',t.dexSell||'',
+      (t.volumeUsd||0).toFixed(2),(t.buyPrice||0).toFixed(2),(t.sellPrice||0).toFixed(2),
+      (t.gasCostUsd||0).toFixed(4),(t.profitUsd||0).toFixed(4),t.profitBps||0,t.aiScore||0,
+      t.profitUsd>0?'PROFIT':'LOSS'
+    ]);
+    let csv=headers.join(',')+'\n'+rows.map(r=>r.join(',')).join('\n');
+    const blob=new Blob([csv],{type:'text/csv'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;a.download='simulated-trades-'+new Date().toISOString().slice(0,10)+'.csv';
+    a.click();URL.revokeObjectURL(url);
+  });
+}
+
 // Listen for new trades in real-time
 socket.on('newTrade',(trade)=>{
   // If on trades panel, reload current page
   const tradesPanel=$('p-trades');
   if(tradesPanel&&tradesPanel.classList.contains('active')){
     loadTrades(tradePage);
+  }
+  // If on simulated panel and trade is paper, reload
+  const simPanel=$('p-simulated');
+  if(simPanel&&simPanel.classList.contains('active')&&trade.paper){
+    loadSimTrades(simPage);
   }
 });
 
