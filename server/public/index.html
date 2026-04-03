@@ -73,6 +73,13 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(19
 .card-title{font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px}
 .card-subtitle{font-size:11px;color:var(--text2);margin-top:2px}
 
+/* FORM ROWS */
+.form-row{margin-bottom:14px}
+.form-row .lbl{display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px;letter-spacing:.3px}
+.form-row .inp{width:100%;padding:10px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;box-sizing:border-box}
+.form-row .inp:focus{outline:none;border-color:var(--accent)}
+.form-row+.btn{margin-top:6px}
+
 /* GRIDS */
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
@@ -287,7 +294,7 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(19
 .bal-bar-fill{height:100%;border-radius:2px;transition:width .3s}
 
 /* CHAIN CHECKBOXES */
-.chain-check{display:flex;align-items:center;gap:6px;padding:6px 10px;background:var(--bg);border:1px solid var(--border);border-radius:8px;cursor:pointer;transition:.2s;font-size:12px}
+.chain-check{display:flex;align-items:center;justify-content:flex-start;gap:8px;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;cursor:pointer;transition:.2s;font-size:13px;font-weight:600}
 .chain-check:hover{border-color:var(--accent);background:rgba(192,84,240,.04)}
 .chain-check input{accent-color:var(--accent);width:14px;height:14px;cursor:pointer}
 .chain-check input:checked ~ .chain-tag{opacity:1}
@@ -689,10 +696,6 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(19
       <div class="fg">
         <label class="fl">Arbiscan API Key <span style="color:var(--text3)">(Optional)</span></label>
         <input type="text" id="inArbiscan" placeholder="For contract verification">
-      </div>
-      <div class="fg">
-        <label class="fl">Telegram Bot Token <span style="color:var(--text3)">(Optional)</span></label>
-        <input type="text" id="inTelegram" placeholder="For trade notifications">
       </div>
     </div>
     <div style="display:flex;align-items:center;gap:12px;margin-top:4px">
@@ -2009,7 +2012,7 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(19
     </div>
   </div>
 
-  <div class="g2">
+  <div class="g2" style="margin-top:16px">
     <div class="card">
       <div class="card-header"><div class="card-title">Replay Missed Opportunities</div></div>
       <div style="padding:10px 0">
@@ -2115,11 +2118,6 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(19
         <input type="text" id="noteGraphKey" placeholder="For subgraph queries">
         <div class="fh">Pool data, historical swaps, liquidity tracking</div>
       </div>
-      <div class="fg">
-        <label class="fl">Telegram Bot Token</label>
-        <input type="text" id="noteTelegramKey" placeholder="123456:ABC-DEF...">
-        <div class="fh">For trade alerts and notifications</div>
-      </div>
     </div>
     <div style="display:flex;gap:8px;margin-top:8px">
       <button class="btn btn-primary btn-sm" onclick="saveInternalKeys()">Save API Keys</button>
@@ -2201,6 +2199,136 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(19
     <div style="display:flex;gap:8px;margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
       <button class="btn btn-primary btn-sm" onclick="saveChecklist()">Save Checklist</button>
       <span id="noteChecklistStatus" style="font-size:12px;line-height:32px"></span>
+    </div>
+  </div>
+
+  <!-- Bot Strategy Guide -->
+  <div class="card" style="border-left:3px solid var(--yellow)">
+    <div class="card-header"><div class="card-title">&#9889; Multi-Bot Strategy Guide</div></div>
+    <div class="page-desc" style="margin-bottom:14px">All three bots can run simultaneously on the same chain. Each bot is an independent process scanning for different opportunity types.</div>
+
+    <table class="data-table" style="margin-bottom:16px;table-layout:fixed;width:100%">
+      <colgroup><col style="width:18%"><col style="width:18%"><col style="width:18%"><col style="width:14%"><col style="width:32%"></colgroup>
+      <thead><tr><th>Bot</th><th>Frequency</th><th>Profit/Trade</th><th>Competition</th><th>Recommendation</th></tr></thead>
+      <tbody>
+        <tr>
+          <td style="font-weight:700;color:var(--accent);white-space:normal;font-size:11px">DEX Arbitrage</td>
+          <td style="white-space:normal;font-size:11px">High (continuous)</td>
+          <td style="white-space:normal;font-size:11px">Small (5-50 bps)</td>
+          <td style="white-space:normal"><span class="badge badge-red">Very High</span></td>
+          <td style="color:var(--green);font-weight:600;white-space:normal;font-size:11px">Always ON — primary revenue source</td>
+        </tr>
+        <tr>
+          <td style="font-weight:700;color:var(--red);white-space:normal;font-size:11px">Liquidation</td>
+          <td style="white-space:normal;font-size:11px">Low (waits for HF &lt; 1)</td>
+          <td style="white-space:normal;font-size:11px">Large (5-10% bonus)</td>
+          <td style="white-space:normal"><span class="badge badge-yellow">Medium</span></td>
+          <td style="color:var(--green);font-weight:600;white-space:normal;font-size:11px">Always ON — background, low resource cost</td>
+        </tr>
+        <tr>
+          <td style="font-weight:700;color:var(--green);white-space:normal;font-size:11px">Stablecoin Scanner</td>
+          <td style="white-space:normal;font-size:11px">Very low (rare events)</td>
+          <td style="white-space:normal;font-size:11px">Very large (if depeg)</td>
+          <td style="white-space:normal"><span class="badge badge-green">Low</span></td>
+          <td style="color:var(--green);font-weight:600;white-space:normal;font-size:11px">Always ON — monitor mode, very profitable when triggered</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div style="font-size:12px;color:var(--text2);line-height:1.8;padding:12px;background:var(--bg);border-radius:8px;border:1px solid var(--border)">
+      <div style="font-weight:700;color:var(--text);margin-bottom:6px">Key Notes:</div>
+      <ul style="margin:0;padding-left:18px">
+        <li><b>Shared wallet &amp; contract</b> — All three bots use the same wallet and deployed contract on the active chain. Ensure sufficient gas (ETH) to cover all bots.</li>
+        <li><b>No nonce conflict in practice</b> — Liquidation and stablecoin opportunities are rare events, so simultaneous execution with arbitrage is extremely unlikely.</li>
+        <li><b>Chain support varies</b> — Liquidation requires Aave V3 (Arbitrum, Base only). Stablecoin scanner requires registries (Arbitrum, Base only). Arbitrage works on all chains.</li>
+        <li><b>Recommended setup</b> — Start with Arbitrum (highest liquidity, lowest gas). Enable all three bots. Set Paper Trading ON for the first 72 hours to evaluate performance before going live.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Network Comparison Guide -->
+  <div class="card" style="border-left:3px solid var(--accent2,#e040fb)">
+    <div class="card-header"><div class="card-title">&#127760; Network Comparison Guide</div></div>
+    <div class="page-desc" style="margin-bottom:14px">Detailed comparison of all supported networks. Use this to decide which chain to deploy and run bots on.</div>
+
+    <table class="data-table" style="margin-bottom:16px;table-layout:fixed;width:100%">
+      <colgroup><col style="width:12%"><col style="width:8%"><col style="width:12%"><col style="width:12%"><col style="width:10%"><col style="width:18%"><col style="width:28%"></colgroup>
+      <thead><tr><th>Network</th><th>Gas</th><th>Gas Cost</th><th>Flash Loan</th><th>TVL</th><th>DEXes</th><th>Best For</th></tr></thead>
+      <tbody>
+        <tr>
+          <td style="font-weight:700;color:var(--accent);white-space:normal;font-size:11px">Arbitrum</td>
+          <td style="white-space:normal;font-size:11px">ETH</td>
+          <td style="white-space:normal;font-size:11px">$0.01 - $0.05</td>
+          <td style="white-space:normal;font-size:11px">Aave V3</td>
+          <td style="white-space:normal;font-size:11px;font-weight:600">~$2.5B</td>
+          <td style="white-space:normal;font-size:11px">Uniswap V3, SushiSwap, Camelot</td>
+          <td style="white-space:normal;font-size:11px;color:var(--green);font-weight:600">Best overall — low gas, deep liquidity, most DEXes. Recommended starting chain.</td>
+        </tr>
+        <tr>
+          <td style="font-weight:700;color:var(--accent);white-space:normal;font-size:11px">Base</td>
+          <td style="white-space:normal;font-size:11px">ETH</td>
+          <td style="white-space:normal;font-size:11px">$0.01 - $0.03</td>
+          <td style="white-space:normal;font-size:11px">Aave V3</td>
+          <td style="white-space:normal;font-size:11px;font-weight:600">~$1.5B</td>
+          <td style="white-space:normal;font-size:11px">Uniswap V3, Aerodrome</td>
+          <td style="white-space:normal;font-size:11px;color:var(--green);font-weight:600">Growing fast, fewer competing bots. Good second chain.</td>
+        </tr>
+        <tr>
+          <td style="font-weight:700;color:var(--text);white-space:normal;font-size:11px">Polygon</td>
+          <td style="white-space:normal;font-size:11px">MATIC</td>
+          <td style="white-space:normal;font-size:11px">$0.001 - $0.01</td>
+          <td style="white-space:normal;font-size:11px">Aave V3</td>
+          <td style="white-space:normal;font-size:11px">~$800M</td>
+          <td style="white-space:normal;font-size:11px">Uniswap V3, SushiSwap, QuickSwap</td>
+          <td style="white-space:normal;font-size:11px">Cheapest gas by far, but lower TVL means smaller opportunities.</td>
+        </tr>
+        <tr>
+          <td style="font-weight:700;color:var(--yellow);white-space:normal;font-size:11px">BSC (BNB)</td>
+          <td style="white-space:normal;font-size:11px">BNB</td>
+          <td style="white-space:normal;font-size:11px">$0.05 - $0.15</td>
+          <td style="white-space:normal;font-size:11px">PancakeSwap V3</td>
+          <td style="white-space:normal;font-size:11px;font-weight:600">~$3B</td>
+          <td style="white-space:normal;font-size:11px">PancakeSwap V2/V3, BiSwap, ApeSwap</td>
+          <td style="white-space:normal;font-size:11px">Highest volume. Different flash loan mechanism (PancakeSwap, not Aave).</td>
+        </tr>
+        <tr>
+          <td style="font-weight:700;color:var(--text);white-space:normal;font-size:11px">Avalanche</td>
+          <td style="white-space:normal;font-size:11px">AVAX</td>
+          <td style="white-space:normal;font-size:11px">$0.02 - $0.08</td>
+          <td style="white-space:normal;font-size:11px">Aave V3</td>
+          <td style="white-space:normal;font-size:11px">~$500M</td>
+          <td style="white-space:normal;font-size:11px">TraderJoe V2, Pangolin, Uniswap V3</td>
+          <td style="white-space:normal;font-size:11px">Niche opportunities with TraderJoe liquidity book.</td>
+        </tr>
+        <tr>
+          <td style="font-weight:700;color:var(--text);white-space:normal;font-size:11px">Mantle</td>
+          <td style="white-space:normal;font-size:11px">MNT</td>
+          <td style="white-space:normal;font-size:11px">$0.01 - $0.03</td>
+          <td style="white-space:normal;font-size:11px">Lendle (Aave fork)</td>
+          <td style="white-space:normal;font-size:11px">~$200M</td>
+          <td style="white-space:normal;font-size:11px">MerchantMoe, AgniFinance, FusionX</td>
+          <td style="white-space:normal;font-size:11px">New chain, less competition but lower liquidity.</td>
+        </tr>
+        <tr>
+          <td style="font-weight:700;color:var(--text);white-space:normal;font-size:11px">Scroll</td>
+          <td style="white-space:normal;font-size:11px">ETH</td>
+          <td style="white-space:normal;font-size:11px">$0.02 - $0.05</td>
+          <td style="white-space:normal;font-size:11px">Aave V3</td>
+          <td style="white-space:normal;font-size:11px">~$150M</td>
+          <td style="white-space:normal;font-size:11px">Ambient Finance, Uniswap V3, SyncSwap</td>
+          <td style="white-space:normal;font-size:11px">Newest ecosystem, growing TVL. Early-mover advantage.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div style="font-size:12px;color:var(--text2);line-height:1.8;padding:12px;background:var(--bg);border-radius:8px;border:1px solid var(--border)">
+      <div style="font-weight:700;color:var(--text);margin-bottom:6px">Chain Selection Strategy:</div>
+      <ul style="margin:0;padding-left:18px">
+        <li><b style="color:var(--green)">Beginner:</b> Start with <b>Arbitrum</b> — safest choice with deepest liquidity, most DEX pairs, and lowest gas. Supports all 3 bots (arbitrage + liquidation + stablecoin).</li>
+        <li><b style="color:var(--accent)">Growth:</b> Add <b>Base</b> as second chain — rapidly increasing TVL with fewer competing bots. Full bot support (Aave V3 available).</li>
+        <li><b style="color:var(--yellow)">Advanced:</b> Expand to <b>BSC</b> for volume play (different flash loan via PancakeSwap) or <b>Polygon</b> for near-zero gas costs. Note: these chains only support arbitrage bot.</li>
+        <li><b style="color:var(--text2)">Experimental:</b> <b>Mantle</b>, <b>Scroll</b>, <b>Avalanche</b> offer early-mover advantages but with lower liquidity. Deploy only after mastering primary chains.</li>
+      </ul>
     </div>
   </div>
 
@@ -2423,13 +2551,7 @@ async function connectMetaMask() {
       status.className = 'login-status success';
       status.textContent = 'Wallet recognized! Click Sign In.';
       regStatus.textContent = '';
-      // If TOTP enabled, show hint
-      if (checkData.totpEnabled) {
-        $('loginTotpSection').style.display = 'block';
-        regStatus.style.color = 'var(--text2)';
-        regStatus.textContent = '2FA is enabled — enter code below before signing in.';
-      }
-    } else if (!checkData.setupComplete || !checkData.hasUsers) {
+    } else if (checkData.setupTokenRequired) {
       // No users yet — show Register with setup token
       btnSignIn.style.display = 'none';
       btnRegister.style.display = 'inline-block';
@@ -3143,12 +3265,10 @@ async function saveCredentials(){
   const pk=$('inPK').value.trim();
   const rpc=$('inRPC').value.trim();
   const arbiscan=$('inArbiscan').value.trim();
-  const telegram=$('inTelegram').value.trim();
   const body={};
   if(pk)body.privateKey=pk;
   if(rpc)body.rpcUrl=rpc;
   if(arbiscan)body.arbiscanKey=arbiscan;
-  if(telegram)body.telegramToken=telegram;
   if(Object.keys(body).length===0){$('credStatus').innerHTML='<span style="color:var(--yellow)">Enter at least one field</span>';return;}
   const res=await apiCall('credentials','POST',body);
   if(res.error){$('credStatus').innerHTML='<span style="color:var(--red)">'+res.error+'</span>';return;}
@@ -3507,13 +3627,16 @@ socket.on('aiStatus',updateAIStatus);
 let tradeFilter='all';
 let tradePage=1;
 
+function fmtNum(v,decimals=0){
+  if(v==null||isNaN(v))return'0';
+  return Number(v).toLocaleString('en-US',{minimumFractionDigits:decimals,maximumFractionDigits:decimals});
+}
 function fmtUsd(v){
   if(v==null||isNaN(v))return'$0.00';
   const neg=v<0;
   const abs=Math.abs(v);
-  if(abs>=1e6)return(neg?'-':'')+'$'+(abs/1e6).toFixed(2)+'M';
-  if(abs>=1e3)return(neg?'-':'')+'$'+(abs/1e3).toFixed(1)+'K';
-  return(neg?'-':'')+'$'+abs.toFixed(2);
+  if(abs>=1e6)return(neg?'-':'')+'$'+fmtNum(abs/1e6,2)+'M';
+  return(neg?'-':'')+'$'+fmtNum(abs,abs>=1?2:4);
 }
 
 function fmtDate(ts){
@@ -3647,8 +3770,8 @@ function renderTradeTable(trades,total,page,totalPages){
       '<td style="font-weight:600">'+escapeHtml(t.pair||'--')+'</td>'+
       '<td><span class="badge '+(t.type==='TRIANGULAR'?'badge-purple':'badge-blue')+'">'+escapeHtml(t.type||'--')+'</span></td>'+
       '<td class="right">'+fmtUsd(t.volumeUsd)+'</td>'+
-      '<td class="right">'+(t.buyPrice?'$'+t.buyPrice.toFixed(2):'--')+'</td>'+
-      '<td class="right">'+(t.sellPrice?'$'+t.sellPrice.toFixed(2):'--')+'</td>'+
+      '<td class="right">'+(t.buyPrice?'$'+fmtNum(t.buyPrice,2):'--')+'</td>'+
+      '<td class="right">'+(t.sellPrice?'$'+fmtNum(t.sellPrice,2):'--')+'</td>'+
       '<td class="right" style="color:var(--orange)">'+fmtUsd(t.gasCostUsd)+'</td>'+
       '<td class="right" style="color:'+profitColor+';font-weight:700">'+fmtUsd(t.profitUsd)+'</td>'+
       '<td style="text-align:center">'+statusBadge+'</td>'+
@@ -3770,8 +3893,8 @@ function renderSimTable(trades,total,page,totalPages){
       '<td style="font-weight:600">'+escapeHtml(t.pair||'--')+'</td>'+
       '<td style="font-size:11px;color:var(--text2)">'+escapeHtml(dexRoute||'--')+'</td>'+
       '<td class="right">'+fmtUsd(t.volumeUsd)+'</td>'+
-      '<td class="right">'+(t.buyPrice?'$'+t.buyPrice.toFixed(2):'--')+'</td>'+
-      '<td class="right">'+(t.sellPrice?'$'+t.sellPrice.toFixed(2):'--')+'</td>'+
+      '<td class="right">'+(t.buyPrice?'$'+fmtNum(t.buyPrice,2):'--')+'</td>'+
+      '<td class="right">'+(t.sellPrice?'$'+fmtNum(t.sellPrice,2):'--')+'</td>'+
       '<td class="right" style="color:var(--orange)">'+fmtUsd(t.gasCostUsd)+'</td>'+
       '<td class="right" style="color:'+profitColor+';font-weight:700">'+fmtUsd(t.profitUsd)+'</td>'+
       '<td class="right" style="color:'+profitColor+'">'+(t.profitBps||0)+' bps</td>'+
@@ -4082,7 +4205,7 @@ function updateRiskPanel(rs) {
   const hf = $('rmHourlyFail'); if (hf) hf.textContent = cb.hourlyFailures || 0;
   const tt = $('rmTotalTrips'); if (tt) tt.textContent = cb.totalTrips || 0;
   const ps = rs.positionSizer || {};
-  const bu = $('rmBudgetUsed'); if (bu) bu.textContent = '$' + (ps.dailyBudgetUsed || 0).toFixed(0);
+  const bu = $('rmBudgetUsed'); if (bu) bu.textContent = '$' + fmtNum(ps.dailyBudgetUsed || 0);
   const bl = $('rmBlacklisted'); if (bl) bl.textContent = rs.blacklistedTokens || 0;
 
   // Audit trail
@@ -4135,7 +4258,7 @@ async function runBacktest() {
     el.innerHTML = `
       <div class="bot-row"><div style="flex:1"><div class="bot-name">Total Trades</div></div><span style="font-weight:700">${m.totalWins + m.totalLosses || 0}</span></div>
       <div class="bot-row"><div style="flex:1"><div class="bot-name">Win Rate</div></div><span style="font-weight:700;color:var(--green)">${((m.winRate || 0) * 100).toFixed(1)}%</span></div>
-      <div class="bot-row"><div style="flex:1"><div class="bot-name">Total Profit</div></div><span style="font-weight:700;color:${m.totalProfit >= 0 ? 'var(--green)' : 'var(--red)'}">$${(m.totalProfit || 0).toFixed(2)}</span></div>
+      <div class="bot-row"><div style="flex:1"><div class="bot-name">Total Profit</div></div><span style="font-weight:700;color:${m.totalProfit >= 0 ? 'var(--green)' : 'var(--red)'}">$${fmtNum(m.totalProfit || 0,2)}</span></div>
       <div class="bot-row"><div style="flex:1"><div class="bot-name">Sharpe Ratio</div></div><span style="font-weight:700">${(m.sharpeRatio || 0).toFixed(2)}</span></div>
       <div class="bot-row"><div style="flex:1"><div class="bot-name">Profit Factor</div></div><span style="font-weight:700">${m.profitFactor === Infinity ? '&infin;' : (m.profitFactor || 0).toFixed(2)}</span></div>
       <div class="bot-row"><div style="flex:1"><div class="bot-name">Max Consecutive Wins</div></div><span style="font-weight:700">${m.maxConsecWins || 0}</span></div>
@@ -4162,7 +4285,7 @@ async function runReplay() {
     el.innerHTML = `<div style="color:var(--text2)">
       Would execute: <b>${r.wouldExecute}</b> | Skip: <b>${r.wouldSkip}</b> |
       Win rate: <b style="color:var(--green)">${((r.winRate || 0) * 100).toFixed(1)}%</b> |
-      Net profit: <b style="color:${r.netProfit >= 0 ? 'var(--green)' : 'var(--red)'}">$${(r.netProfit || 0).toFixed(2)}</b>
+      Net profit: <b style="color:${r.netProfit >= 0 ? 'var(--green)' : 'var(--red)'}">$${fmtNum(r.netProfit || 0,2)}</b>
     </div>
     <div style="margin-top:6px;font-size:11px;color:${warnColor};border-top:1px solid var(--border);padding-top:6px">
       &#9888; Data quality: <b>${dq.realOutcomes || 0}</b> real outcomes, <b>${dq.simulatedOutcomes || 0}</b> simulated (${simPct}%)${simPct > 0 ? '<br><span style="color:var(--yellow)">Simulated outcomes use heuristic 60% win rate — do NOT treat as proof of strategy effectiveness.</span>' : ''}
@@ -4221,7 +4344,6 @@ async function saveInternalKeys() {
     etherscan: $('noteEtherscanKey')?.value || '',
     priceApi: $('notePriceApiKey')?.value || '',
     graph: $('noteGraphKey')?.value || '',
-    telegram: $('noteTelegramKey')?.value || '',
   };
   const res = await apiCall('notes/keys', 'POST', keys);
   const el = $('noteKeysStatus');
@@ -4268,7 +4390,6 @@ async function loadInternalNotes() {
     if (res.keys.etherscan) $('noteEtherscanKey').value = res.keys.etherscan;
     if (res.keys.priceApi) $('notePriceApiKey').value = res.keys.priceApi;
     if (res.keys.graph) $('noteGraphKey').value = res.keys.graph;
-    if (res.keys.telegram) $('noteTelegramKey').value = res.keys.telegram;
   }
   if (res.checklist) applyChecklistState(res.checklist);
   if (res.text && $('notesFreeText')) $('notesFreeText').value = res.text;

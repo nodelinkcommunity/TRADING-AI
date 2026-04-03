@@ -157,9 +157,6 @@ app.get("/api/auth/check-wallet/:address", (req, res) => {
   const user = auth.users.find(u => u.walletAddress?.toLowerCase() === address);
   res.json({
     registered: !!user,
-    totpEnabled: user ? user.totpEnabled : false,
-    setupComplete: auth.setupComplete,
-    hasUsers: auth.users.length > 0,
     setupTokenRequired: !auth.setupComplete && auth.users.length === 0,
   });
 });
@@ -823,6 +820,22 @@ function loadConfig() {
       if (!merged.contractAddresses) merged.contractAddresses = {};
       if (merged.contractAddress && !merged.contractAddresses[merged.chain]) {
         merged.contractAddresses[merged.chain] = merged.contractAddress;
+      }
+      // Migrate old single liquidationContractAddress to per-chain map
+      if (!merged.liquidationContractAddresses) merged.liquidationContractAddresses = {};
+      if (merged.liquidationContractAddress && !merged.liquidationContractAddresses[merged.chain]) {
+        merged.liquidationContractAddresses[merged.chain] = merged.liquidationContractAddress;
+      }
+      // Strip testnet chains from saved data (production migration)
+      const testnetKeys = ["arbitrumSepolia", "baseSepolia", "goerli", "sepolia"];
+      if (merged.chains) {
+        merged.chains = merged.chains.filter(c => !testnetKeys.includes(c));
+      }
+      if (merged.contractAddresses) {
+        testnetKeys.forEach(k => delete merged.contractAddresses[k]);
+      }
+      if (merged.liquidationContractAddresses) {
+        testnetKeys.forEach(k => delete merged.liquidationContractAddresses[k]);
       }
       return merged;
     }
