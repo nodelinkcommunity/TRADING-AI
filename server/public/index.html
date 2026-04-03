@@ -1445,30 +1445,27 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(19
     <div class="bot-row">
       <span class="dot dot-off" id="dotArb"></span>
       <div style="flex:1"><div class="bot-name">Arbitrage Bot</div><div class="bot-desc">Handles DEX-to-DEX and Triangular Arbitrage strategies. Scans multiple pairs across Uniswap V3, SushiSwap, and Camelot.</div></div>
-      <button class="btn btn-success btn-sm" onclick="apiCall('bot/arbitrage/start','POST')">Start</button>
-      <button class="btn btn-danger btn-sm" onclick="apiCall('bot/arbitrage/stop','POST')">Stop</button>
+      <button class="btn btn-success btn-sm" id="btnArb" onclick="toggleBot('arbitrage',this)">Start</button>
     </div>
 
     <div class="bot-row" id="liqBotRow">
       <span class="dot dot-off" id="dotLiq"></span>
       <div style="flex:1">
-        <div class="bot-name">Liquidation Bot <span id="liqBotBadge"></span></div>
+        <div class="bot-name">Liquidation Bot</div>
         <div class="bot-desc">Monitors Aave V3 borrower positions for liquidatable health factors. Executes flashloan-powered liquidations.</div>
         <div id="liqBotWarning" style="display:none;font-size:10px;color:var(--yellow);margin-top:4px"></div>
       </div>
-      <button class="btn btn-success btn-sm" id="btnStartLiq" onclick="apiCall('bot/liquidation/start','POST')">Start</button>
-      <button class="btn btn-danger btn-sm" onclick="apiCall('bot/liquidation/stop','POST')">Stop</button>
+      <button class="btn btn-success btn-sm" id="btnLiq" onclick="toggleBot('liquidation',this)">Start</button>
     </div>
 
     <div class="bot-row" id="stableBotRow">
       <span class="dot dot-off" id="dotStable"></span>
       <div style="flex:1">
-        <div class="bot-name">Stablecoin Bot <span id="stableBotBadge"></span></div>
+        <div class="bot-name">Stablecoin Bot</div>
         <div class="bot-desc">Scans 6+ stablecoins for depeg opportunities. Calculates round-trip profit including all swap fees.</div>
         <div id="stableBotWarning" style="display:none;font-size:10px;color:var(--yellow);margin-top:4px"></div>
       </div>
-      <button class="btn btn-success btn-sm" id="btnStartStable" onclick="apiCall('bot/stablecoin/start','POST')">Start</button>
-      <button class="btn btn-danger btn-sm" onclick="apiCall('bot/stablecoin/stop','POST')">Stop</button>
+      <button class="btn btn-success btn-sm" id="btnStable" onclick="toggleBot('stablecoin',this)">Start</button>
     </div>
   </div>
 
@@ -3106,46 +3103,39 @@ function updateBotCapabilityBadges(){
   const liqAddr = state?.config?.liquidationContractAddresses?.[chain] || '';
 
   // Liquidation bot
-  const liqBadge = $('liqBotBadge');
   const liqWarn = $('liqBotWarning');
-  const btnLiq = $('btnStartLiq');
-  if (liqBadge && liqWarn && btnLiq) {
+  const btnLiqEl = $('btnLiq');
+  if (liqWarn && btnLiqEl) {
     if (!caps.liquidation) {
-      liqBadge.innerHTML = '<span class="badge badge-red" style="font-size:9px">Unsupported</span>';
       liqWarn.style.display = 'block';
       liqWarn.textContent = 'Chain "' + chain + '" does not support liquidation. Switch to arbitrum or base.';
-      btnLiq.disabled = true;
-      btnLiq.style.opacity = '0.4';
+      btnLiqEl.disabled = true;
+      btnLiqEl.style.opacity = '0.4';
     } else if (!liqAddr && !state?.config?.paperTrading) {
-      liqBadge.innerHTML = '<span class="badge badge-yellow" style="font-size:9px">Executor missing</span>';
       liqWarn.style.display = 'block';
       liqWarn.textContent = 'LiquidationExecutor not deployed on ' + chain + '. Deploy first or enable paper trading.';
-      btnLiq.disabled = true;
-      btnLiq.style.opacity = '0.4';
+      btnLiqEl.disabled = true;
+      btnLiqEl.style.opacity = '0.4';
     } else {
-      liqBadge.innerHTML = liqAddr ? '<span class="badge badge-green" style="font-size:9px">Ready</span>' : '';
       liqWarn.style.display = 'none';
-      btnLiq.disabled = false;
-      btnLiq.style.opacity = '1';
+      btnLiqEl.disabled = false;
+      btnLiqEl.style.opacity = '1';
     }
   }
 
   // Stablecoin bot
-  const stableBadge = $('stableBotBadge');
   const stableWarn = $('stableBotWarning');
-  const btnStable = $('btnStartStable');
-  if (stableBadge && stableWarn && btnStable) {
+  const btnStableEl = $('btnStable');
+  if (stableWarn && btnStableEl) {
     if (!caps.stablecoin) {
-      stableBadge.innerHTML = '<span class="badge badge-red" style="font-size:9px">Unsupported</span>';
       stableWarn.style.display = 'block';
       stableWarn.textContent = 'Chain "' + chain + '" does not support stablecoin scanning. Switch to arbitrum or base.';
-      btnStable.disabled = true;
-      btnStable.style.opacity = '0.4';
+      btnStableEl.disabled = true;
+      btnStableEl.style.opacity = '0.4';
     } else {
-      stableBadge.innerHTML = '';
       stableWarn.style.display = 'none';
-      btnStable.disabled = false;
-      btnStable.style.opacity = '1';
+      btnStableEl.disabled = false;
+      btnStableEl.style.opacity = '1';
     }
   }
 }
@@ -3417,6 +3407,25 @@ async function doDeploy(){
 }
 
 // ===== BOT STATUS =====
+function toggleBot(name,btn){
+  if(!btn)return;
+  const isRunning=btn.textContent==='Running';
+  const action=isRunning?'stop':'start';
+  btn.disabled=true;
+  btn.textContent=isRunning?'Stopping...':'Starting...';
+  apiCall('bot/'+name+'/'+action,'POST').then(()=>{
+    setTimeout(()=>{btn.disabled=false;},1000);
+  }).catch(()=>{btn.disabled=false;});
+}
+function setBotBtn(id,running){
+  const btn=$(id);if(!btn)return;
+  if(running){
+    btn.textContent='Running';btn.className='btn btn-danger btn-sm';
+  } else {
+    btn.textContent='Start';btn.className='btn btn-success btn-sm';
+  }
+  btn.disabled=false;
+}
 function updateBotDots(bots){
   if(!bots)return;
   const setDot=(id,on)=>{const el=$(id);if(el)el.className='dot '+(on?'dot-on':'dot-off');};
@@ -3427,6 +3436,9 @@ function updateBotDots(bots){
   setDot('dDotLiq',bots.liquidation);
   setDot('dDotStb',bots.stablecoin);
   setDot('dotAll',bots.arbitrage||bots.liquidation||bots.stablecoin);
+  setBotBtn('btnArb',bots.arbitrage);
+  setBotBtn('btnLiq',bots.liquidation);
+  setBotBtn('btnStable',bots.stablecoin);
   const count=(bots.arbitrage?1:0)+(bots.liquidation?1:0)+(bots.stablecoin?1:0);
   const el=$('activeBotCount');if(el)el.textContent=count;
 }
