@@ -22,6 +22,11 @@ const AAVE_PROVIDERS = {
   5000: "0x10f7Bb5e3C4c77a57e2Ec4c348AeB661E65b8F8b", // Mantle (Lendle - Aave V3 fork)
 };
 
+// PancakeSwap V3 Factory cho BSC (dung cho flash loan thay Aave)
+const PANCAKE_V3_FACTORIES = {
+  56: "0x0BFbCF9fa4f9C56B0F40a671Ad40E0805A091865", // BSC PancakeSwap V3 Factory
+};
+
 // DEX Routers cho tung chain
 const DEX_ROUTERS = {
   42161: {
@@ -74,25 +79,41 @@ async function main() {
   const balance = await hre.ethers.provider.getBalance(deployer.address);
   console.log(`Balance: ${hre.ethers.formatEther(balance)} ETH\n`);
 
-  // Lay Aave provider
+  // Xac dinh loai contract va deploy
+  let contract;
+  let contractAddress;
+  let constructorArg;
+  let contractType;
+
+  const pancakeFactory = PANCAKE_V3_FACTORIES[chainId];
   const aaveProvider = AAVE_PROVIDERS[chainId];
-  if (!aaveProvider) {
-    const unsupported = {
-      56: "BSC does not support Aave V3. Use PancakeSwap flash loans instead (requires different contract).",
-    };
-    throw new Error(unsupported[chainId] || `Aave V3 is not available on chainId ${chainId}. Cannot deploy flash loan contract.`);
+
+  if (pancakeFactory) {
+    // ===== BSC: Deploy FlashloanArbitrageBSC (PancakeSwap V3 Flash Loan) =====
+    contractType = "FlashloanArbitrageBSC";
+    constructorArg = pancakeFactory;
+    console.log(`Flash Loan Provider: PancakeSwap V3`);
+    console.log(`Factory: ${pancakeFactory}`);
+
+    console.log(`\nDeploying ${contractType}...`);
+    const ContractFactory = await hre.ethers.getContractFactory(contractType);
+    contract = await ContractFactory.deploy(pancakeFactory);
+  } else if (aaveProvider) {
+    // ===== Cac chain khac: Deploy FlashloanArbitrage (Aave V3) =====
+    contractType = "FlashloanArbitrage";
+    constructorArg = aaveProvider;
+    console.log(`Flash Loan Provider: Aave V3`);
+    console.log(`Provider: ${aaveProvider}`);
+
+    console.log(`\nDeploying ${contractType}...`);
+    const ContractFactory = await hre.ethers.getContractFactory(contractType);
+    contract = await ContractFactory.deploy(aaveProvider);
+  } else {
+    throw new Error(`No flash loan provider available for chainId ${chainId}. Cannot deploy.`);
   }
-  console.log(`Aave Provider: ${aaveProvider}`);
 
-  // Deploy contract
-  console.log("\nDeploying FlashloanArbitrage...");
-  const FlashloanArbitrage = await hre.ethers.getContractFactory(
-    "FlashloanArbitrage"
-  );
-  const contract = await FlashloanArbitrage.deploy(aaveProvider);
   await contract.waitForDeployment();
-
-  const contractAddress = await contract.getAddress();
+  contractAddress = await contract.getAddress();
   console.log(`Contract deployed: ${contractAddress}`);
 
   // Set DEX routers
@@ -111,21 +132,23 @@ async function main() {
   console.log("  Deployment Complete!");
   console.log("====================================");
   console.log(`Contract: ${contractAddress}`);
+  console.log(`Type: ${contractType}`);
   console.log(`Owner: ${deployer.address}`);
   console.log(`Chain: ${chainId}`);
+  console.log(`Flash Loan: ${pancakeFactory ? "PancakeSwap V3" : "Aave V3"}`);
   console.log("\nNext steps:");
-  console.log("1. Update config.json with contract address");
-  console.log("2. Fund contract if needed");
-  console.log("3. Start the monitoring bot");
+  console.log("1. Contract address auto-saved to Dashboard");
+  console.log("2. Start bot with Paper Trading to evaluate");
+  console.log("3. Switch to Live Trading when ready");
   console.log("====================================\n");
 
-  // Verify contract (optional)
+  // Verify contract (optional, skip testnet)
   if (chainId !== 31337 && chainId !== 421614 && chainId !== 84532) {
     console.log("Verifying contract on block explorer...");
     try {
       await hre.run("verify:verify", {
         address: contractAddress,
-        constructorArguments: [aaveProvider],
+        constructorArguments: [constructorArg],
       });
       console.log("Contract verified!");
     } catch (error) {
