@@ -26,6 +26,18 @@ const SESSION_SECRET = crypto.randomBytes(32).toString("hex");
 
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
+// ============ TRADE HISTORY ============
+
+const TRADES_PATH = path.join(DATA_DIR, "trades.json");
+let tradeHistory = [];
+// Load existing trades
+if (fs.existsSync(TRADES_PATH)) {
+  try { tradeHistory = JSON.parse(fs.readFileSync(TRADES_PATH, "utf8")); } catch(e) {}
+}
+function saveTrades() {
+  fs.writeFileSync(TRADES_PATH, JSON.stringify(tradeHistory, null, 2));
+}
+
 // Default configuration
 const DEFAULT_CONFIG = {
   // Credential status (actual keys stored in .env only)
@@ -116,6 +128,105 @@ let stats = {
   gasSpent: 0,
   uptime: 0,
 };
+
+let tradeStats = {
+  totalTrades: 0,
+  successfulTrades: 0,
+  failedTrades: 0,
+  totalProfitUsd: 0,
+  totalGasCostUsd: 0,
+  netProfitUsd: 0,
+  bestTradeUsd: 0,
+  worstTradeUsd: 0,
+  winRate: 0,
+  avgProfitPerTrade: 0,
+  totalVolumeUsd: 0,
+  todayTrades: 0,
+  todayProfitUsd: 0,
+  streakWins: 0,
+  streakLosses: 0,
+  byStrategy: {},
+  byChain: {},
+  byHour: {},
+};
+
+function recalcStats() {
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+
+  tradeStats = {
+    totalTrades: 0, successfulTrades: 0, failedTrades: 0,
+    totalProfitUsd: 0, totalGasCostUsd: 0, netProfitUsd: 0,
+    bestTradeUsd: 0, worstTradeUsd: 0, winRate: 0,
+    avgProfitPerTrade: 0, totalVolumeUsd: 0,
+    todayTrades: 0, todayProfitUsd: 0,
+    streakWins: 0, streakLosses: 0,
+    byStrategy: {}, byChain: {}, byHour: {},
+  };
+
+  let currentStreak = 0;
+  let lastWasWin = null;
+
+  for (const t of tradeHistory) {
+    tradeStats.totalTrades++;
+    const profit = t.profitUsd || 0;
+    const gasCost = t.gasCostUsd || 0;
+    const volume = t.volumeUsd || 0;
+
+    if (t.success) {
+      tradeStats.successfulTrades++;
+      if (lastWasWin === true) currentStreak++;
+      else currentStreak = 1;
+      lastWasWin = true;
+      tradeStats.streakWins = Math.max(tradeStats.streakWins, currentStreak);
+    } else {
+      tradeStats.failedTrades++;
+      if (lastWasWin === false) currentStreak++;
+      else currentStreak = 1;
+      lastWasWin = false;
+      tradeStats.streakLosses = Math.max(tradeStats.streakLosses, currentStreak);
+    }
+
+    tradeStats.totalProfitUsd += profit;
+    tradeStats.totalGasCostUsd += gasCost;
+    tradeStats.totalVolumeUsd += volume;
+
+    if (profit > tradeStats.bestTradeUsd) tradeStats.bestTradeUsd = profit;
+    if (profit < tradeStats.worstTradeUsd) tradeStats.worstTradeUsd = profit;
+
+    // Today stats
+    if (t.timestamp >= todayStart) {
+      tradeStats.todayTrades++;
+      tradeStats.todayProfitUsd += profit;
+    }
+
+    // By strategy
+    const strat = t.strategy || "unknown";
+    if (!tradeStats.byStrategy[strat]) tradeStats.byStrategy[strat] = { count: 0, profit: 0, wins: 0 };
+    tradeStats.byStrategy[strat].count++;
+    tradeStats.byStrategy[strat].profit += profit;
+    if (t.success) tradeStats.byStrategy[strat].wins++;
+
+    // By chain
+    const chain = t.chain || "unknown";
+    if (!tradeStats.byChain[chain]) tradeStats.byChain[chain] = { count: 0, profit: 0 };
+    tradeStats.byChain[chain].count++;
+    tradeStats.byChain[chain].profit += profit;
+
+    // By hour
+    const hour = new Date(t.timestamp).getHours();
+    if (!tradeStats.byHour[hour]) tradeStats.byHour[hour] = { count: 0, profit: 0 };
+    tradeStats.byHour[hour].count++;
+    tradeStats.byHour[hour].profit += profit;
+  }
+
+  tradeStats.netProfitUsd = tradeStats.totalProfitUsd - tradeStats.totalGasCostUsd;
+  tradeStats.winRate = tradeStats.totalTrades > 0 ? (tradeStats.successfulTrades / tradeStats.totalTrades * 100) : 0;
+  tradeStats.avgProfitPerTrade = tradeStats.totalTrades > 0 ? (tradeStats.netProfitUsd / tradeStats.totalTrades) : 0;
+}
+
+// Recalculate on startup
+recalcStats();
 
 // ============ HELPERS ============
 
@@ -313,6 +424,89 @@ function parseLogForStats(line) {
   if (lower.includes("scan")) stats.scansCompleted++;
   if (lower.includes("opportunit") || lower.includes("found")) stats.opportunitiesFound++;
   if (lower.includes("success") || lower.includes("executed") || lower.includes("trade")) stats.tradesExecuted++;
+
+  // Parse trade execution logs from bot output
+  if (line.includes("[TRADE] EXECUTED") || (lower.includes("transaction sent:") && lower.includes("success"))) {
+    const trade = {
+      id: Date.now(),
+      timestamp: Date.now(),
+      strategy: "dexArbitrage",
+      chain: config.chains?.[0] || "arbitrumSepolia",
+      pair: "WETH/USDC",
+      type: "SIMPLE",
+      volumeUsd: config.flashAmountUsd || 50000,
+      buyPrice: 0,
+      sellPrice: 0,
+      gasCostUsd: 0,
+      profitUsd: 0,
+      profitBps: 0,
+      success: true,
+      txHash: "",
+      gasUsed: 0,
+      blockNumber: 0,
+      aiScore: 0,
+    };
+
+    // Parse strategy from log
+    if (lower.includes("triangular")) trade.strategy = "triangular";
+    else if (lower.includes("liquidat")) trade.strategy = "liquidation";
+    else if (lower.includes("stablecoin") || lower.includes("depeg")) trade.strategy = "stablecoin";
+
+    // Parse tx hash
+    const txMatch = line.match(/0x[a-fA-F0-9]{64}/);
+    if (txMatch) trade.txHash = txMatch[0];
+
+    // Parse profit
+    const profitMatch = line.match(/profit[:\s]+\$?([\d.]+)/i);
+    if (profitMatch) trade.profitUsd = parseFloat(profitMatch[1]);
+
+    // Parse pair
+    const pairMatch = line.match(/([A-Z]{2,10}\/[A-Z]{2,10})/);
+    if (pairMatch) trade.pair = pairMatch[1];
+
+    tradeHistory.unshift(trade);
+    if (tradeHistory.length > 10000) tradeHistory = tradeHistory.slice(0, 10000);
+    saveTrades();
+    recalcStats();
+    io.emit("tradeStats", tradeStats);
+    io.emit("newTrade", trade);
+  }
+
+  // Parse failed trade
+  if (lower.includes("execution error:") || lower.includes("[trade] failed")) {
+    const trade = {
+      id: Date.now(),
+      timestamp: Date.now(),
+      strategy: "dexArbitrage",
+      chain: config.chains?.[0] || "arbitrumSepolia",
+      pair: "WETH/USDC",
+      type: "SIMPLE",
+      volumeUsd: 0,
+      buyPrice: 0,
+      sellPrice: 0,
+      gasCostUsd: 0,
+      profitUsd: 0,
+      profitBps: 0,
+      success: false,
+      txHash: "",
+      gasUsed: 0,
+      blockNumber: 0,
+      aiScore: 0,
+      errorMessage: line,
+    };
+    const txMatch = line.match(/0x[a-fA-F0-9]{64}/);
+    if (txMatch) trade.txHash = txMatch[0];
+    if (lower.includes("triangular")) trade.strategy = "triangular";
+    else if (lower.includes("liquidat")) trade.strategy = "liquidation";
+    else if (lower.includes("stablecoin") || lower.includes("depeg")) trade.strategy = "stablecoin";
+
+    tradeHistory.unshift(trade);
+    if (tradeHistory.length > 10000) tradeHistory = tradeHistory.slice(0, 10000);
+    saveTrades();
+    recalcStats();
+    io.emit("tradeStats", tradeStats);
+    io.emit("newTrade", trade);
+  }
 
   // Parse AI log lines: [AI] Score: 75/100 | EXECUTE | ...
   if (line.startsWith("[AI] Score:")) {
@@ -629,6 +823,80 @@ app.get("/api/ai/status", (req, res) => {
   });
 });
 
+// ============ TRADE HISTORY API ============
+
+// GET trade history with pagination
+app.get("/api/trades", (req, res) => {
+  const page = Math.max(1, parseInt(req.query.page) || 1);
+  const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+  const filter = req.query.filter || "all";
+  const strategy = req.query.strategy || "";
+
+  let filtered = tradeHistory;
+  if (filter === "success") filtered = filtered.filter(t => t.success);
+  else if (filter === "failed") filtered = filtered.filter(t => !t.success);
+  if (strategy) filtered = filtered.filter(t => t.strategy === strategy);
+
+  const total = filtered.length;
+  const totalPages = Math.ceil(total / limit);
+  const start = (page - 1) * limit;
+  const trades = filtered.slice(start, start + limit);
+
+  res.json({ success: true, trades, total, page, totalPages, limit });
+});
+
+// GET computed trade stats
+app.get("/api/trades/stats", (req, res) => {
+  res.json({ success: true, stats: tradeStats });
+});
+
+// POST manually record a trade
+app.post("/api/trades/record", (req, res) => {
+  const trade = {
+    id: Date.now(),
+    timestamp: Date.now(),
+    ...req.body,
+  };
+  tradeHistory.unshift(trade);
+  if (tradeHistory.length > 10000) tradeHistory = tradeHistory.slice(0, 10000);
+  saveTrades();
+  recalcStats();
+  io.emit("tradeStats", tradeStats);
+  io.emit("newTrade", trade);
+  res.json({ success: true, trade });
+});
+
+// POST generate a test trade
+app.post("/api/trades/test", (req, res) => {
+  const sampleTrade = {
+    id: Date.now(),
+    timestamp: Date.now(),
+    strategy: ["dexArbitrage","triangular","liquidation","stablecoin"][Math.floor(Math.random()*4)],
+    chain: config.chains?.[0] || "arbitrumSepolia",
+    pair: ["WETH/USDC","WETH/USDT","WETH/ARB","USDC/USDT"][Math.floor(Math.random()*4)],
+    type: Math.random()>0.5?"SIMPLE":"TRIANGULAR",
+    volumeUsd: Math.round(Math.random()*100000),
+    buyPrice: 3400+Math.random()*100,
+    sellPrice: 3400+Math.random()*100,
+    gasCostUsd: Math.random()*2,
+    profitUsd: (Math.random()-0.3)*50,
+    profitBps: Math.round((Math.random()-0.3)*100),
+    success: Math.random()>0.2,
+    txHash: "0x"+[...Array(64)].map(()=>Math.floor(Math.random()*16).toString(16)).join(''),
+    gasUsed: Math.round(200000+Math.random()*300000),
+    blockNumber: Math.round(200000000+Math.random()*1000000),
+    aiScore: Math.round(40+Math.random()*60),
+  };
+  sampleTrade.profitUsd = sampleTrade.success ? Math.abs(sampleTrade.profitUsd) : -Math.abs(sampleTrade.gasCostUsd);
+  tradeHistory.unshift(sampleTrade);
+  if(tradeHistory.length > 10000) tradeHistory = tradeHistory.slice(0, 10000);
+  saveTrades();
+  recalcStats();
+  io.emit("tradeStats", tradeStats);
+  io.emit("newTrade", sampleTrade);
+  res.json({ success: true, trade: sampleTrade });
+});
+
 // GET health check
 app.get("/api/health", (req, res) => {
   res.json({
@@ -645,6 +913,7 @@ io.on("connection", (socket) => {
   addLog("system", "server", "Client connected via WebSocket");
   socket.emit("botStatus", getBotStatuses());
   socket.emit("stats", stats);
+  socket.emit("tradeStats", tradeStats);
   socket.emit("recentLogs", logs.slice(-50));
 
   socket.on("disconnect", () => {
@@ -659,6 +928,7 @@ setInterval(() => {
   }
   io.emit("stats", stats);
   io.emit("aiStatus", aiStatus);
+  io.emit("tradeStats", tradeStats);
 }, 5000);
 
 // ============ GRACEFUL SHUTDOWN ============

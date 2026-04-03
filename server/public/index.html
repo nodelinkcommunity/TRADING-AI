@@ -195,6 +195,30 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,
 .risk-bar.filled{background:var(--green)}
 .risk-bar.med{background:var(--yellow)}
 .risk-bar.high{background:var(--red)}
+
+/* STAT GRID (Trade Stats) */
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+@media(max-width:900px){.stat-grid{grid-template-columns:repeat(2,1fr)}}
+.stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center}
+.stat-label{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:6px;font-weight:600}
+.stat-value{font-size:24px;font-weight:700;color:var(--text);font-family:'SF Mono',Monaco,monospace}
+.stat-value.positive{color:var(--green)}
+.stat-value.negative{color:var(--red)}
+.stat-value.neutral{color:var(--accent)}
+.stat-sub{font-size:11px;color:var(--text3);margin-top:4px}
+
+/* TRADE TABLE */
+.trade-filters{display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.trade-filters select{width:auto;min-width:120px}
+.trade-summary-bar{display:flex;gap:24px;padding:10px 16px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;margin-bottom:14px;font-size:12px;color:var(--text2);flex-wrap:wrap}
+.trade-summary-bar span{display:flex;align-items:center;gap:4px}
+.trade-summary-bar b{color:var(--text);font-weight:700}
+.pagination{display:flex;align-items:center;gap:8px;margin-top:14px;justify-content:center}
+.pagination button{padding:5px 12px;border-radius:6px;background:var(--bg3);border:1px solid var(--border);color:var(--text2);font-size:12px;cursor:pointer;transition:.15s}
+.pagination button:hover{border-color:var(--accent);color:var(--text)}
+.pagination button.active{background:var(--accent);color:var(--bg);border-color:var(--accent);font-weight:700}
+.pagination button:disabled{opacity:.4;cursor:default}
+.pagination .page-info{font-size:12px;color:var(--text3)}
 </style>
 </head>
 <body>
@@ -232,6 +256,7 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,
   <button class="sb-btn" onclick="navigate('bots')"><span class="icon">&#9889;</span> Bot Control <span class="dot dot-off" id="dotAll"></span></button>
   <button class="sb-btn" onclick="navigate('logs')"><span class="icon">&#9776;</span> Live Logs</button>
   <button class="sb-btn" onclick="navigate('stats')"><span class="icon">&#9670;</span> Analytics</button>
+  <button class="sb-btn" onclick="navigate('trades')"><span class="icon">&#128203;</span> Trade History</button>
   <button class="sb-btn" onclick="navigate('ai')"><span class="icon">&#129504;</span> AI Insights</button>
 </div>
 
@@ -242,6 +267,49 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,
 <div class="panel active" id="p-dashboard">
   <div class="page-title">Command Center</div>
   <div class="page-desc">Real-time overview of all systems. Monitor your bots, strategies, and performance at a glance.</div>
+
+  <div class="stat-grid">
+    <div class="stat-card">
+      <div class="stat-label">TOTAL TRADES</div>
+      <div class="stat-value neutral" id="statTotalTrades">0</div>
+      <div class="stat-sub" id="statTotalTradesSub">Today: 0</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">WIN RATE</div>
+      <div class="stat-value neutral" id="statWinRate">0%</div>
+      <div class="stat-sub" id="statWinRateSub">0 won / 0 lost</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">NET PROFIT</div>
+      <div class="stat-value" id="statNetProfit">$0.00</div>
+      <div class="stat-sub" id="statNetProfitSub">Today: $0.00</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">TOTAL VOLUME</div>
+      <div class="stat-value neutral" id="statTotalVolume">$0</div>
+      <div class="stat-sub" id="statTotalVolumeSub">Across all trades</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">TOTAL GAS COST</div>
+      <div class="stat-value" id="statGasCost" style="color:var(--orange)">$0.00</div>
+      <div class="stat-sub" id="statGasCostSub">Avg per trade: $0.00</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">BEST TRADE</div>
+      <div class="stat-value positive" id="statBestTrade">$0.00</div>
+      <div class="stat-sub" id="statBestTradeSub">Highest single profit</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">AVG PROFIT/TRADE</div>
+      <div class="stat-value" id="statAvgProfit">$0.00</div>
+      <div class="stat-sub" id="statAvgProfitSub">After gas costs</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">ACTIVE CHAINS</div>
+      <div class="stat-value neutral" id="statActiveChains">0</div>
+      <div class="stat-sub" id="statActiveChainsSub">Trading networks</div>
+    </div>
+  </div>
 
   <div class="g4" style="margin-bottom:20px">
     <div class="kpi kpi-accent"><div class="kpi-label">System Uptime</div><div class="kpi-value" id="dUptime" style="color:var(--accent);font-size:18px">--</div></div>
@@ -1044,6 +1112,67 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,
   </div>
 </div>
 
+<!-- ========== TRADE HISTORY ========== -->
+<div class="panel" id="p-trades">
+  <div class="page-title" style="display:flex;align-items:center;justify-content:space-between">
+    <span>Trade History</span>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-warning btn-sm" onclick="generateTestTrade()">Generate Test Trade</button>
+      <button class="btn btn-ghost btn-sm" onclick="exportTradesCSV()">Export CSV</button>
+    </div>
+  </div>
+  <div class="page-desc">Complete record of all executed trades. Filter, search, and export your trading history.</div>
+
+  <div class="trade-summary-bar" id="tradeSummaryBar">
+    <span>Total: <b id="tsSummaryTotal">0</b></span>
+    <span>Won: <b id="tsSummaryWon" style="color:var(--green)">0</b></span>
+    <span>Lost: <b id="tsSummaryLost" style="color:var(--red)">0</b></span>
+    <span>Win Rate: <b id="tsSummaryWinRate">0%</b></span>
+    <span>Net Profit: <b id="tsSummaryProfit">$0.00</b></span>
+    <span>Volume: <b id="tsSummaryVolume">$0</b></span>
+  </div>
+
+  <div class="trade-filters">
+    <div class="tab-group" style="margin-bottom:0">
+      <button class="tab-btn active" onclick="filterTrades('all',this)">All</button>
+      <button class="tab-btn" onclick="filterTrades('success',this)">Successful</button>
+      <button class="tab-btn" onclick="filterTrades('failed',this)">Failed</button>
+    </div>
+    <select id="tradeStrategyFilter" onchange="loadTrades(1)">
+      <option value="">All Strategies</option>
+      <option value="dexArbitrage">DEX Arbitrage</option>
+      <option value="triangular">Triangular</option>
+      <option value="liquidation">Liquidation</option>
+      <option value="stablecoin">Stablecoin</option>
+    </select>
+  </div>
+
+  <div style="overflow-x:auto">
+    <table class="data-table" id="tradeTable">
+      <thead><tr>
+        <th>#</th>
+        <th>Time</th>
+        <th>Strategy</th>
+        <th>Chain</th>
+        <th>Pair</th>
+        <th>Type</th>
+        <th class="right">Volume</th>
+        <th class="right">Buy Price</th>
+        <th class="right">Sell Price</th>
+        <th class="right">Gas Cost</th>
+        <th class="right">Profit</th>
+        <th style="text-align:center">Status</th>
+        <th>TX Hash</th>
+      </tr></thead>
+      <tbody id="tradeTableBody">
+        <tr class="empty-row"><td colspan="13">No trades recorded yet. Start bots or generate test trades.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="pagination" id="tradePagination"></div>
+</div>
+
 <!-- ========== AI INSIGHTS ========== -->
 <div class="panel" id="p-ai">
   <div class="page-title">AI Insights</div>
@@ -1226,6 +1355,8 @@ function navigate(name){
   });
   // simple matching: click the event button
   if(event&&event.currentTarget&&event.currentTarget.classList)event.currentTarget.classList.add('active');
+  // Load trades when navigating to trades panel
+  if(name==='trades')loadTrades(tradePage);
 }
 
 // ===== API =====
@@ -1735,6 +1866,202 @@ function updateAIStatus(ai){
 
 socket.on('aiStatus',updateAIStatus);
 
+// ===== TRADE STATS & HISTORY =====
+let tradeFilter='all';
+let tradePage=1;
+
+function fmtUsd(v){
+  if(v==null||isNaN(v))return'$0.00';
+  const neg=v<0;
+  const abs=Math.abs(v);
+  if(abs>=1e6)return(neg?'-':'')+'$'+(abs/1e6).toFixed(2)+'M';
+  if(abs>=1e3)return(neg?'-':'')+'$'+(abs/1e3).toFixed(1)+'K';
+  return(neg?'-':'')+'$'+abs.toFixed(2);
+}
+
+function fmtDate(ts){
+  if(!ts)return'--';
+  const d=new Date(ts);
+  const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const h=d.getHours().toString().padStart(2,'0');
+  const m=d.getMinutes().toString().padStart(2,'0');
+  const s=d.getSeconds().toString().padStart(2,'0');
+  return months[d.getMonth()]+' '+d.getDate()+', '+h+':'+m+':'+s;
+}
+
+function truncHash(hash){
+  if(!hash||hash.length<12)return hash||'--';
+  return hash.slice(0,6)+'...'+hash.slice(-4);
+}
+
+function getExplorerUrl(chain,hash){
+  const explorers={
+    arbitrumSepolia:'https://sepolia.arbiscan.io/tx/',
+    arbitrum:'https://arbiscan.io/tx/',
+    base:'https://basescan.org/tx/',
+    baseSepolia:'https://sepolia.basescan.org/tx/',
+    polygon:'https://polygonscan.com/tx/',
+    bsc:'https://bscscan.com/tx/',
+    avalanche:'https://snowtrace.io/tx/',
+    mantle:'https://explorer.mantle.xyz/tx/',
+    scroll:'https://scrollscan.com/tx/',
+  };
+  return(explorers[chain]||'https://etherscan.io/tx/')+hash;
+}
+
+const stratLabels={dexArbitrage:'DEX Arb',triangular:'Triangular',liquidation:'Liquidation',stablecoin:'Stablecoin',unknown:'Unknown'};
+const stratColors={dexArbitrage:'var(--accent)',triangular:'var(--accent2)',liquidation:'var(--red)',stablecoin:'var(--green)'};
+
+function updateDashboardStats(s){
+  if(!s)return;
+  const el=id=>$(id);
+  el('statTotalTrades').textContent=s.totalTrades||0;
+  el('statTotalTradesSub').textContent='Today: '+(s.todayTrades||0);
+
+  const wr=el('statWinRate');
+  wr.textContent=(s.winRate||0).toFixed(1)+'%';
+  wr.className='stat-value '+((s.winRate||0)>=50?'positive':(s.totalTrades>0?'negative':'neutral'));
+  el('statWinRateSub').textContent=(s.successfulTrades||0)+' won / '+(s.failedTrades||0)+' lost';
+
+  const np=el('statNetProfit');
+  np.textContent=fmtUsd(s.netProfitUsd||0);
+  np.className='stat-value '+((s.netProfitUsd||0)>=0?'positive':'negative');
+  el('statNetProfitSub').textContent='Today: '+fmtUsd(s.todayProfitUsd||0);
+
+  el('statTotalVolume').textContent=fmtUsd(s.totalVolumeUsd||0);
+
+  el('statGasCost').textContent=fmtUsd(s.totalGasCostUsd||0);
+  const avgGas=s.totalTrades>0?(s.totalGasCostUsd/s.totalTrades):0;
+  el('statGasCostSub').textContent='Avg per trade: '+fmtUsd(avgGas);
+
+  el('statBestTrade').textContent=fmtUsd(s.bestTradeUsd||0);
+
+  const ap=el('statAvgProfit');
+  ap.textContent=fmtUsd(s.avgProfitPerTrade||0);
+  ap.className='stat-value '+((s.avgProfitPerTrade||0)>=0?'positive':'negative');
+
+  const chainCount=Object.keys(s.byChain||{}).length;
+  el('statActiveChains').textContent=chainCount;
+  el('statActiveChainsSub').textContent=chainCount===1?'1 chain':chainCount+' chains';
+
+  // Trade summary bar
+  const se=id=>$(id);
+  se('tsSummaryTotal').textContent=s.totalTrades||0;
+  se('tsSummaryWon').textContent=s.successfulTrades||0;
+  se('tsSummaryLost').textContent=s.failedTrades||0;
+  se('tsSummaryWinRate').textContent=(s.winRate||0).toFixed(1)+'%';
+  se('tsSummaryProfit').textContent=fmtUsd(s.netProfitUsd||0);
+  se('tsSummaryProfit').style.color=(s.netProfitUsd||0)>=0?'var(--green)':'var(--red)';
+  se('tsSummaryVolume').textContent=fmtUsd(s.totalVolumeUsd||0);
+}
+
+socket.on('tradeStats',updateDashboardStats);
+
+function filterTrades(filter,btn){
+  tradeFilter=filter;
+  tradePage=1;
+  if(btn){
+    btn.closest('.tab-group').querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+  }
+  loadTrades(1);
+}
+
+async function loadTrades(page){
+  page=page||1;
+  tradePage=page;
+  const strategy=$('tradeStrategyFilter')?$('tradeStrategyFilter').value:'';
+  const params='trades?page='+page+'&limit=20&filter='+tradeFilter+(strategy?'&strategy='+strategy:'');
+  const res=await apiCall(params,'GET');
+  if(res&&res.success){
+    renderTradeTable(res.trades,res.total,page,res.totalPages);
+  }
+}
+
+function renderTradeTable(trades,total,page,totalPages){
+  const body=$('tradeTableBody');
+  if(!body)return;
+  if(!trades||trades.length===0){
+    body.innerHTML='<tr class="empty-row"><td colspan="13">No trades found.</td></tr>';
+    $('tradePagination').innerHTML='';
+    return;
+  }
+
+  const startNum=(page-1)*20;
+  body.innerHTML=trades.map((t,i)=>{
+    const profitColor=t.profitUsd>=0?'var(--green)':'var(--red)';
+    const statusBadge=t.success?'<span class="badge badge-green">Success</span>':'<span class="badge badge-red">Failed</span>';
+    const txLink=t.txHash?'<a href="'+getExplorerUrl(t.chain,t.txHash)+'" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none;font-family:monospace;font-size:11px" title="'+t.txHash+'">'+truncHash(t.txHash)+'</a>':'--';
+    const stratColor=stratColors[t.strategy]||'var(--text2)';
+
+    return '<tr>'+
+      '<td style="color:var(--text3)">'+(startNum+i+1)+'</td>'+
+      '<td style="white-space:nowrap;font-size:11px">'+fmtDate(t.timestamp)+'</td>'+
+      '<td><span style="color:'+stratColor+';font-weight:600;font-size:11px">'+(stratLabels[t.strategy]||t.strategy)+'</span></td>'+
+      '<td style="font-size:11px">'+(t.chain||'--')+'</td>'+
+      '<td style="font-weight:600">'+(t.pair||'--')+'</td>'+
+      '<td><span class="badge '+(t.type==='TRIANGULAR'?'badge-purple':'badge-blue')+'">'+(t.type||'--')+'</span></td>'+
+      '<td class="right">'+fmtUsd(t.volumeUsd)+'</td>'+
+      '<td class="right">'+(t.buyPrice?'$'+t.buyPrice.toFixed(2):'--')+'</td>'+
+      '<td class="right">'+(t.sellPrice?'$'+t.sellPrice.toFixed(2):'--')+'</td>'+
+      '<td class="right" style="color:var(--orange)">'+fmtUsd(t.gasCostUsd)+'</td>'+
+      '<td class="right" style="color:'+profitColor+';font-weight:700">'+fmtUsd(t.profitUsd)+'</td>'+
+      '<td style="text-align:center">'+statusBadge+'</td>'+
+      '<td>'+txLink+'</td>'+
+    '</tr>';
+  }).join('');
+
+  // Pagination
+  let pHtml='';
+  if(totalPages>1){
+    pHtml+='<button '+(page<=1?'disabled':'')+' onclick="loadTrades('+(page-1)+')">&laquo; Prev</button>';
+    for(let p=1;p<=totalPages&&p<=7;p++){
+      pHtml+='<button class="'+(p===page?'active':'')+'" onclick="loadTrades('+p+')">'+p+'</button>';
+    }
+    if(totalPages>7) pHtml+='<span class="page-info">...</span><button onclick="loadTrades('+totalPages+')">'+totalPages+'</button>';
+    pHtml+='<button '+(page>=totalPages?'disabled':'')+' onclick="loadTrades('+(page+1)+')">Next &raquo;</button>';
+    pHtml+='<span class="page-info">Page '+page+' of '+totalPages+' ('+total+' trades)</span>';
+  } else if(total>0){
+    pHtml='<span class="page-info">'+total+' trade'+(total===1?'':'s')+'</span>';
+  }
+  $('tradePagination').innerHTML=pHtml;
+}
+
+async function generateTestTrade(){
+  const res=await apiCall('trades/test','POST');
+  if(res&&res.success){
+    loadTrades(tradePage);
+  }
+}
+
+function exportTradesCSV(){
+  apiCall('trades?page=1&limit=10000','GET').then(res=>{
+    if(!res||!res.trades||res.trades.length===0){alert('No trades to export.');return;}
+    const headers=['ID','Timestamp','Strategy','Chain','Pair','Type','Volume USD','Buy Price','Sell Price','Gas Cost USD','Profit USD','Profit BPS','Success','TX Hash','Gas Used','Block Number','AI Score'];
+    const rows=res.trades.map(t=>[
+      t.id,new Date(t.timestamp).toISOString(),t.strategy,t.chain,t.pair,t.type,
+      (t.volumeUsd||0).toFixed(2),(t.buyPrice||0).toFixed(2),(t.sellPrice||0).toFixed(2),
+      (t.gasCostUsd||0).toFixed(4),(t.profitUsd||0).toFixed(4),t.profitBps||0,
+      t.success?'TRUE':'FALSE',t.txHash||'',t.gasUsed||0,t.blockNumber||0,t.aiScore||0
+    ]);
+    let csv=headers.join(',')+'\n'+rows.map(r=>r.join(',')).join('\n');
+    const blob=new Blob([csv],{type:'text/csv'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;a.download='flashloan-trades-'+new Date().toISOString().slice(0,10)+'.csv';
+    a.click();URL.revokeObjectURL(url);
+  });
+}
+
+// Listen for new trades in real-time
+socket.on('newTrade',(trade)=>{
+  // If on trades panel, reload current page
+  const tradesPanel=$('p-trades');
+  if(tradesPanel&&tradesPanel.classList.contains('active')){
+    loadTrades(tradePage);
+  }
+});
+
 // ===== CLOCK =====
 setInterval(()=>{const el=$('clock');if(el)el.textContent=new Date().toLocaleTimeString();},1000);
 
@@ -1742,6 +2069,8 @@ setInterval(()=>{const el=$('clock');if(el)el.textContent=new Date().toLocaleTim
 loadState();
 // Load initial AI status
 apiCall('ai/status').then(res=>{if(res&&res.aiStatus)updateAIStatus(res.aiStatus);});
+// Load initial trade stats
+apiCall('trades/stats').then(res=>{if(res&&res.stats)updateDashboardStats(res.stats);});
 </script>
 </body>
 </html>
