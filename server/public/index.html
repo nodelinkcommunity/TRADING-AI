@@ -374,7 +374,7 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,
         <div class="fh">Export from MetaMask: Account &rarr; Export Private Key. Use a dedicated bot wallet only.</div>
       </div>
       <div class="fg">
-        <label class="fl">RPC URL (Arbitrum)</label>
+        <label class="fl">RPC URL (<span id="rpcChainLabel">Arbitrum</span>)</label>
         <input type="text" id="inRPC" placeholder="https://arb-sepolia.g.alchemy.com/v2/YOUR_KEY">
         <div class="fh">Get from Alchemy, Infura, or QuickNode dashboard.</div>
       </div>
@@ -397,7 +397,7 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,
 
   <div class="card">
     <div class="card-header">
-      <div><div class="card-title">Step 2 &mdash; Compile & Deploy Smart Contract</div><div class="card-subtitle">Compile Solidity contracts and deploy to your selected network</div></div>
+      <div><div class="card-title">Step 2 &mdash; Compile & Deploy Smart Contract</div><div class="card-subtitle">Deploy target: <strong id="deployTargetLabel" style="color:var(--accent)">arbitrumSepolia</strong> — change in Trading Configuration</div></div>
     </div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
       <button class="btn btn-warning" id="btnCompile" onclick="doCompile()">Compile Contracts</button>
@@ -1363,6 +1363,33 @@ let currentFilter='';
 let state={};
 
 // ===== NAVIGATION =====
+function updateSetupLabels(){
+  const chainNames={
+    arbitrum:"Arbitrum One",arbitrumSepolia:"Arbitrum Sepolia",
+    base:"Base",baseSepolia:"Base Sepolia",
+    polygon:"Polygon",bsc:"BSC (BNB Chain)",
+    avalanche:"Avalanche",mantle:"Mantle",scroll:"Scroll",
+  };
+  const rpcPlaceholders={
+    arbitrum:"https://arb-mainnet.g.alchemy.com/v2/YOUR_KEY",
+    arbitrumSepolia:"https://arb-sepolia.g.alchemy.com/v2/YOUR_KEY",
+    base:"https://base-mainnet.g.alchemy.com/v2/YOUR_KEY",
+    baseSepolia:"https://base-sepolia.g.alchemy.com/v2/YOUR_KEY",
+    polygon:"https://polygon-mainnet.g.alchemy.com/v2/YOUR_KEY",
+    bsc:"https://bsc-dataseed1.binance.org or Alchemy",
+    avalanche:"https://api.avax.network/ext/bc/C/rpc or Alchemy",
+    mantle:"https://rpc.mantle.xyz",
+    scroll:"https://rpc.scroll.io",
+  };
+  const chain=state?.config?.chain||"arbitrumSepolia";
+  const el1=document.getElementById("rpcChainLabel");
+  if(el1)el1.textContent=chainNames[chain]||chain;
+  const el2=document.getElementById("deployTargetLabel");
+  if(el2)el2.textContent=chainNames[chain]||chain;
+  const el3=document.getElementById("inRPC");
+  if(el3&&!el3.value)el3.placeholder=rpcPlaceholders[chain]||"https://...";
+}
+
 function navigate(name){
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.sb-btn').forEach(b=>b.classList.remove('active'));
@@ -1376,6 +1403,8 @@ function navigate(name){
   if(event&&event.currentTarget&&event.currentTarget.classList)event.currentTarget.classList.add('active');
   // Load trades when navigating to trades panel
   if(name==='trades')loadTrades(tradePage);
+  // Update setup labels when navigating to setup
+  if(name==='setup')updateSetupLabels();
 }
 
 // ===== API =====
@@ -1421,6 +1450,9 @@ function updateUI(){
   $('cfgScan').value=Math.round(c.scanIntervalMs/1000);$('vScan').textContent=Math.round(c.scanIntervalMs/1000);
   $('cfgGas').value=c.maxGasGwei;$('vGas').textContent=c.maxGasGwei;
   if(c.contractAddress)$('inContract').value=c.contractAddress;
+
+  // Update setup labels for selected chain
+  updateSetupLabels();
 
   // Network badge
   const selChains=c.chains||[c.chain||'arbitrumSepolia'];

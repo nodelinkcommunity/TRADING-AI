@@ -356,6 +356,9 @@ function startBot(botName) {
       ...process.env,
       ...loadEnvVars(),
       ...(config.contractAddress ? { CONTRACT_ADDRESS: config.contractAddress } : {}),
+      BOT_CHAIN: config.chain || "arbitrumSepolia",
+      FLASH_AMOUNT_USD: String(config.flashAmountUsd || 50000),
+      PAPER_TRADING: config.paperTrading ? "true" : "false",
     },
     stdio: ["pipe", "pipe", "pipe"],
   });
@@ -655,8 +658,22 @@ app.post("/api/credentials", (req, res) => {
     if (!rpcUrl.startsWith("http")) {
       return res.status(400).json({ error: "Invalid RPC URL format (must start with http)" });
     }
-    updateEnvVar("ARBITRUM_RPC_URL", rpcUrl);
-    addLog("info", "server", "RPC URL updated");
+    // Save to the correct env var based on selected chain
+    const chain = config.chain || "arbitrumSepolia";
+    const rpcEnvMap = {
+      arbitrum: "ARBITRUM_RPC_URL",
+      arbitrumSepolia: "ARBITRUM_RPC_URL",
+      base: "BASE_RPC_URL",
+      baseSepolia: "BASE_RPC_URL",
+      polygon: "POLYGON_RPC_URL",
+      bsc: "BSC_RPC_URL",
+      avalanche: "AVAX_RPC_URL",
+      mantle: "MANTLE_RPC_URL",
+      scroll: "SCROLL_RPC_URL",
+    };
+    const envKey = rpcEnvMap[chain] || "ARBITRUM_RPC_URL";
+    updateEnvVar(envKey, rpcUrl);
+    addLog("info", "server", `RPC URL updated for ${chain} (${envKey})`);
   }
 
   if (arbiscanKey) {

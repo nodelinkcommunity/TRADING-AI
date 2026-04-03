@@ -13,7 +13,28 @@ const { AIEngine } = require("./ai");
 
 // Override config with .env values (Dashboard saves to .env)
 if (process.env.PRIVATE_KEY) config.privateKey = process.env.PRIVATE_KEY;
-if (process.env.ARBITRUM_RPC_URL) config.rpcUrl = process.env.ARBITRUM_RPC_URL;
+
+// Load RPC URL from correct env var based on chain
+const rpcEnvMap = {
+  arbitrum: "ARBITRUM_RPC_URL",
+  arbitrumSepolia: "ARBITRUM_RPC_URL",
+  base: "BASE_RPC_URL",
+  baseSepolia: "BASE_RPC_URL",
+  polygon: "POLYGON_RPC_URL",
+  bsc: "BSC_RPC_URL",
+  avalanche: "AVAX_RPC_URL",
+  mantle: "MANTLE_RPC_URL",
+  scroll: "SCROLL_RPC_URL",
+};
+const chain = config.chain || "arbitrumSepolia";
+const rpcEnvKey = rpcEnvMap[chain] || "ARBITRUM_RPC_URL";
+if (process.env[rpcEnvKey]) config.rpcUrl = process.env[rpcEnvKey];
+// Fallback to ARBITRUM_RPC_URL if specific var not set
+else if (process.env.ARBITRUM_RPC_URL) config.rpcUrl = process.env.ARBITRUM_RPC_URL;
+
+// Override chain from server env
+if (process.env.BOT_CHAIN) config.chain = process.env.BOT_CHAIN;
+if (process.env.FLASH_AMOUNT_USD) config.flashAmountUsd = parseInt(process.env.FLASH_AMOUNT_USD);
 
 // ============ ABI Definitions ============
 
