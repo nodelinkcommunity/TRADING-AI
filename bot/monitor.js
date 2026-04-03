@@ -419,14 +419,20 @@ class ArbitrageExecutor {
         return null;
       }
 
-      // Gui transaction
+      // Gui transaction — BSC uses legacy gas, others use EIP-1559
+      const txOverrides = {
+        gasLimit: (gasEstimate * 120n) / 100n, // +20% buffer
+      };
+      if (feeData.maxFeePerGas && !this.isBSC) {
+        txOverrides.maxFeePerGas = feeData.maxFeePerGas;
+        txOverrides.maxPriorityFeePerGas = feeData.maxPriorityFeePerGas;
+      } else {
+        txOverrides.gasPrice = feeData.gasPrice;
+      }
+
       const tx = await this.contract.executeArbitrage(
         ...execArgs,
-        {
-          gasLimit: (gasEstimate * 120n) / 100n, // +20% buffer
-          maxFeePerGas: feeData.maxFeePerGas,
-          maxPriorityFeePerGas: feeData.maxPriorityFeePerGas,
-        }
+        txOverrides
       );
 
       console.log(`Transaction sent: ${tx.hash}`);
@@ -531,6 +537,9 @@ class FlashloanBot {
     if (!this.config.privateKey || this.config.privateKey.includes("YOUR_")) {
       throw new Error("Private key not configured. Go to Dashboard → Setup to enter your private key.");
     }
+    if (!this.config.rpcUrl) {
+      throw new Error(`RPC URL not configured for chain "${chain}". Go to Dashboard → Setup to enter your RPC URL.`);
+    }
 
     // Setup provider
     this.provider = new ethers.JsonRpcProvider(this.config.rpcUrl);
@@ -550,9 +559,6 @@ class FlashloanBot {
       try {
         const dexModule = require("../config/dex.js");
         const tokenModule = require("../config/tokens.js");
-        const chainsModule = require("../config/chains.js");
-
-        const chainInfo = Object.values(chainsModule.CHAINS || chainsModule).find(c => c.chainId === chainId);
 
         // Load DEX configs for this chain
         if (dexModule.DEX && dexModule.DEX[chainId]) {
@@ -675,6 +681,14 @@ class FlashloanBot {
   async scanOnce() {
     const startTime = Date.now();
     let foundOpportunities = [];
+
+    if (!this.config.tokenPairs || this.config.tokenPairs.length === 0) {
+      if (this.stats.scansCompleted === 0) {
+        console.warn("[WARN] No token pairs configured. Check chain config or Dashboard settings.");
+      }
+      this.stats.scansCompleted++;
+      return;
+    }
 
     for (const pair of this.config.tokenPairs) {
       // Simple arbitrage
