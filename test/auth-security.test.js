@@ -94,16 +94,19 @@ describe("Auth Security — Wallet Challenge Verification", function () {
   describe("Chain capability gating for bots", function () {
     const { supportsStrategy } = require("../config/chain-capabilities");
 
-    it("should prevent liquidation bot on arbitrumSepolia", function () {
-      expect(supportsStrategy("arbitrumSepolia", "liquidation")).to.equal(false);
+    it("should prevent liquidation bot on unsupported chains", function () {
+      expect(supportsStrategy("bsc", "liquidation")).to.equal(false);
+      expect(supportsStrategy("polygon", "liquidation")).to.equal(false);
     });
 
-    it("should prevent stablecoin bot on arbitrumSepolia", function () {
-      expect(supportsStrategy("arbitrumSepolia", "stablecoin")).to.equal(false);
+    it("should prevent stablecoin bot on unsupported chains", function () {
+      expect(supportsStrategy("bsc", "stablecoin")).to.equal(false);
+      expect(supportsStrategy("polygon", "stablecoin")).to.equal(false);
     });
 
-    it("should allow arbitrage bot on arbitrumSepolia", function () {
-      expect(supportsStrategy("arbitrumSepolia", "arbitrage")).to.equal(true);
+    it("should allow arbitrage bot on all known chains", function () {
+      expect(supportsStrategy("arbitrum", "arbitrage")).to.equal(true);
+      expect(supportsStrategy("bsc", "arbitrage")).to.equal(true);
     });
 
     it("should allow liquidation bot on arbitrum mainnet", function () {

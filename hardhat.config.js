@@ -23,13 +23,6 @@ module.exports = {
       },
     },
 
-    // Arbitrum Sepolia Testnet
-    arbitrumSepolia: {
-      url: "https://sepolia-rollup.arbitrum.io/rpc",
-      chainId: 421614,
-      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
-    },
-
     // Arbitrum Mainnet
     arbitrum: {
       url: process.env.ARBITRUM_RPC_URL || "https://arb1.arbitrum.io/rpc",
@@ -41,13 +34,6 @@ module.exports = {
     base: {
       url: process.env.BASE_RPC_URL || "https://mainnet.base.org",
       chainId: 8453,
-      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
-    },
-
-    // Base Sepolia Testnet
-    baseSepolia: {
-      url: "https://sepolia.base.org",
-      chainId: 84532,
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
     },
 

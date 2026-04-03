@@ -571,8 +571,8 @@ const DEFAULT_CONFIG = {
   rpcUrlSet: false,
 
   // Network (multi-chain support)
-  chain: "arbitrumSepolia",
-  chains: ["arbitrumSepolia"],
+  chain: "arbitrum",
+  chains: ["arbitrum"],
   contractAddress: "",
   contractAddresses: {},
 
@@ -919,7 +919,7 @@ function startBot(botName) {
   }
 
   // Chain capability check — fail-closed
-  const currentChain = config.chain || "arbitrumSepolia";
+  const currentChain = config.chain || "arbitrum";
   const strategyKey = BOT_STRATEGY_MAP[botName];
   if (strategyKey && !supportsStrategy(currentChain, strategyKey)) {
     addLog("error", botName, `Cannot start ${botName}: chain "${currentChain}" does not support ${strategyKey}. Switch to a supported chain first.`);
@@ -949,7 +949,7 @@ function startBot(botName) {
       ...process.env,
       ...loadEnvVars(),
       ...((() => {
-        const botChain = config.chain || "arbitrumSepolia";
+        const botChain = config.chain || "arbitrum";
         const addr = config.contractAddresses?.[botChain] || config.contractAddress || "";
         const liqAddr = config.liquidationContractAddresses?.[botChain] || config.liquidationContractAddress || "";
         return {
@@ -957,7 +957,7 @@ function startBot(botName) {
           ...(liqAddr ? { FLASHLOAN_CONTRACT_ADDRESS: liqAddr } : {}),
         };
       })()),
-      BOT_CHAIN: config.chain || "arbitrumSepolia",
+      BOT_CHAIN: config.chain || "arbitrum",
       FLASH_AMOUNT_USD: String(config.flashAmountUsd || 50000),
       PAPER_TRADING: config.paperTrading ? "true" : "false",
     },
@@ -1050,7 +1050,7 @@ function parseLogForStats(line) {
       timestamp: Date.now(),
       paper: true,
       strategy: "dexArbitrage",
-      chain: config.chains?.[0] || "arbitrumSepolia",
+      chain: config.chains?.[0] || "arbitrum",
       pair: "WETH/USDC",
       type: "SIMPLE",
       volumeUsd: config.flashAmountUsd || 50000,
@@ -1108,7 +1108,7 @@ function parseLogForStats(line) {
       timestamp: Date.now(),
       paper: false,
       strategy: "dexArbitrage",
-      chain: config.chain || "arbitrumSepolia",
+      chain: config.chain || "arbitrum",
       pair: "WETH/USDC",
       type: "SIMPLE",
       volumeUsd: config.flashAmountUsd || 50000,
@@ -1220,7 +1220,7 @@ app.get("/api/state", requireAuth, (req, res) => {
       ...config,
       privateKeySet: !!envVars.PRIVATE_KEY && envVars.PRIVATE_KEY.length > 10,
       rpcUrlSet: (() => {
-        const rpcMap = { arbitrum: "ARBITRUM_RPC_URL", arbitrumSepolia: "ARBITRUM_RPC_URL", base: "BASE_RPC_URL", baseSepolia: "BASE_RPC_URL", polygon: "POLYGON_RPC_URL", bsc: "BSC_RPC_URL", avalanche: "AVAX_RPC_URL", mantle: "MANTLE_RPC_URL", scroll: "SCROLL_RPC_URL" };
+        const rpcMap = { arbitrum: "ARBITRUM_RPC_URL", base: "BASE_RPC_URL", polygon: "POLYGON_RPC_URL", bsc: "BSC_RPC_URL", avalanche: "AVAX_RPC_URL", mantle: "MANTLE_RPC_URL", scroll: "SCROLL_RPC_URL" };
         const key = rpcMap[config.chain] || "ARBITRUM_RPC_URL";
         return !!envVars[key] && envVars[key].startsWith("http");
       })(),
@@ -1260,12 +1260,11 @@ app.post("/api/credentials", requireAuth, (req, res) => {
       return res.status(400).json({ error: "Invalid RPC URL format (must start with http)" });
     }
     // Save to the correct env var based on selected chain
-    const chain = config.chain || "arbitrumSepolia";
+    const chain = config.chain || "arbitrum";
     const rpcEnvMap = {
       arbitrum: "ARBITRUM_RPC_URL",
-      arbitrumSepolia: "ARBITRUM_RPC_URL",
+      arbitrum: "ARBITRUM_RPC_URL",
       base: "BASE_RPC_URL",
-      baseSepolia: "BASE_RPC_URL",
       polygon: "POLYGON_RPC_URL",
       bsc: "BSC_RPC_URL",
       avalanche: "AVAX_RPC_URL",
@@ -1371,7 +1370,7 @@ app.post("/api/bot/start-all", requireAuth, (req, res) => {
   const results = {};
   const skipped = [];
   const strats = config.strategies;
-  const currentChain = config.chain || "arbitrumSepolia";
+  const currentChain = config.chain || "arbitrum";
 
   // Arbitrage bot handles: dexArbitrage, triangular, newPool, oracleLag, yieldRebalance
   const arbStrategies = ["dexArbitrage", "triangular", "newPool", "oracleLag", "yieldRebalance"];
@@ -1453,7 +1452,7 @@ app.post("/api/deploy", requireAuth, (req, res) => {
     return res.status(400).json({ error: "Private key not configured. Save credentials in Setup first." });
   }
 
-  const network = config.chain || "arbitrumSepolia";
+  const network = config.chain || "arbitrum";
   addLog("info", "deploy", `Deploying contract to ${network}...`);
 
   const proc = spawn("npx", ["hardhat", "run", "scripts/deploy.js", "--network", network], {
@@ -1471,7 +1470,7 @@ app.post("/api/deploy", requireAuth, (req, res) => {
     addLog("warn", "deploy", d.toString().trim());
   });
   proc.on("close", (code) => {
-    const deployChain = config.chain || "arbitrumSepolia";
+    const deployChain = config.chain || "arbitrum";
 
     // Parse main arbitrage contract address (e.g. "Contract: 0x..." or "deployed...0x...")
     const addrMatch = output.match(/^Contract:\s*(0x[a-fA-F0-9]{40})/m)
@@ -1517,10 +1516,8 @@ app.get("/api/balances", requireAuth, async (req, res) => {
   }
 
   const chainRpcs = {
-    arbitrumSepolia: { rpc: "https://sepolia-rollup.arbitrum.io/rpc", symbol: "ETH", name: "Arbitrum Sepolia", decimals: 18 },
     arbitrum: { rpc: envVars.ARBITRUM_RPC_URL || "https://arb1.arbitrum.io/rpc", symbol: "ETH", name: "Arbitrum One", decimals: 18 },
     base: { rpc: envVars.BASE_RPC_URL || "https://mainnet.base.org", symbol: "ETH", name: "Base", decimals: 18 },
-    baseSepolia: { rpc: "https://sepolia.base.org", symbol: "ETH", name: "Base Sepolia", decimals: 18 },
     polygon: { rpc: envVars.POLYGON_RPC_URL || "https://polygon-rpc.com", symbol: "MATIC", name: "Polygon", decimals: 18 },
     bsc: { rpc: envVars.BSC_RPC_URL || "https://bsc-dataseed1.binance.org", symbol: "BNB", name: "BSC", decimals: 18 },
     avalanche: { rpc: envVars.AVAX_RPC_URL || "https://api.avax.network/ext/bc/C/rpc", symbol: "AVAX", name: "Avalanche", decimals: 18 },
@@ -1621,7 +1618,7 @@ app.post("/api/trades/test", requireAuth, (req, res) => {
     paper: true,
     test: true,
     strategy: ["dexArbitrage","triangular","liquidation","stablecoin"][Math.floor(Math.random()*4)],
-    chain: config.chains?.[0] || "arbitrumSepolia",
+    chain: config.chains?.[0] || "arbitrum",
     pair: ["WETH/USDC","WETH/USDT","WETH/ARB","USDC/USDT"][Math.floor(Math.random()*4)],
     type: Math.random()>0.5?"SIMPLE":"TRIANGULAR",
     volumeUsd: Math.round(Math.random()*100000),

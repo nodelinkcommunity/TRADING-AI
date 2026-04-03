@@ -1,6 +1,6 @@
 /**
  * FLASHLOAN-AI: Chain Configurations
- * Cau hinh cho tung blockchain (mainnet + testnet)
+ * Cau hinh cho tung blockchain (mainnet only)
  */
 
 const CHAINS = {
@@ -93,30 +93,7 @@ const CHAINS = {
     avgBlockTimeMs: 3000,
   },
 
-  // ============ Testnets ============
-  arbitrumSepolia: {
-    name: "Arbitrum Sepolia",
-    chainId: 421614,
-    rpc: "https://sepolia-rollup.arbitrum.io/rpc",
-    explorer: "https://sepolia.arbiscan.io",
-    nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
-    aavePoolProvider: "0xB25a5D144626a0D488e52AE717A051a2E9997076",
-    aavePool: "0xBfC91D59fdAA134A4ED45f7B584cAf96D7792Eff",
-    aaveDataProvider: "0x12373B5085e3b42D42C1D4ABF3B3Cf4Df0E0Fa01",
-    multicall3: "0xcA11bde05977b3631167028862bE2a173976CA11",
-    isTestnet: true,
-  },
-
-  baseSepolia: {
-    name: "Base Sepolia",
-    chainId: 84532,
-    rpc: "https://sepolia.base.org",
-    explorer: "https://sepolia.basescan.org",
-    nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
-    aavePoolProvider: "0xE4C23309117Aa30342BFaae6c95c6478e0A4Ad00",
-    multicall3: "0xcA11bde05977b3631167028862bE2a173976CA11",
-    isTestnet: true,
-  },
+  // Testnets removed — production release only supports mainnets
 };
 
 function getChainById(chainId) {
@@ -133,10 +110,4 @@ function getAllMainnets() {
     .reduce((acc, [k, v]) => ({ ...acc, [k]: v }), {});
 }
 
-function getAllTestnets() {
-  return Object.entries(CHAINS)
-    .filter(([, c]) => c.isTestnet)
-    .reduce((acc, [k, v]) => ({ ...acc, [k]: v }), {});
-}
-
-module.exports = { CHAINS, getChainById, getChainByName, getAllMainnets, getAllTestnets };
+module.exports = { CHAINS, getChainById, getChainByName, getAllMainnets };

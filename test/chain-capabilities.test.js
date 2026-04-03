@@ -16,9 +16,9 @@ describe("Chain Capabilities", function () {
       expect(CHAIN_CAPABILITIES).to.have.property("bsc");
     });
 
-    it("should have entries for testnet chains", function () {
-      expect(CHAIN_CAPABILITIES).to.have.property("arbitrumSepolia");
-      expect(CHAIN_CAPABILITIES).to.have.property("baseSepolia");
+    it("should not have testnet entries (production only)", function () {
+      expect(CHAIN_CAPABILITIES).to.not.have.property("arbitrumSepolia");
+      expect(CHAIN_CAPABILITIES).to.not.have.property("baseSepolia");
     });
 
     it("should only allow liquidation on chains with Aave V3 + CHAIN_CONFIG", function () {
@@ -26,8 +26,7 @@ describe("Chain Capabilities", function () {
       expect(CHAIN_CAPABILITIES.arbitrum.liquidation).to.equal(true);
       expect(CHAIN_CAPABILITIES.base.liquidation).to.equal(true);
 
-      // Testnets and other chains should NOT support liquidation
-      expect(CHAIN_CAPABILITIES.arbitrumSepolia.liquidation).to.equal(false);
+      // Other chains should NOT support liquidation
       expect(CHAIN_CAPABILITIES.polygon.liquidation).to.equal(false);
       expect(CHAIN_CAPABILITIES.bsc.liquidation).to.equal(false);
     });
@@ -36,7 +35,6 @@ describe("Chain Capabilities", function () {
       expect(CHAIN_CAPABILITIES.arbitrum.stablecoin).to.equal(true);
       expect(CHAIN_CAPABILITIES.base.stablecoin).to.equal(true);
 
-      expect(CHAIN_CAPABILITIES.arbitrumSepolia.stablecoin).to.equal(false);
       expect(CHAIN_CAPABILITIES.polygon.stablecoin).to.equal(false);
     });
 
@@ -67,11 +65,11 @@ describe("Chain Capabilities", function () {
     it("should return true for supported combos", function () {
       expect(supportsStrategy("arbitrum", "liquidation")).to.equal(true);
       expect(supportsStrategy("base", "stablecoin")).to.equal(true);
-      expect(supportsStrategy("arbitrumSepolia", "arbitrage")).to.equal(true);
+      expect(supportsStrategy("bsc", "arbitrage")).to.equal(true);
     });
 
     it("should return false for unsupported combos", function () {
-      expect(supportsStrategy("arbitrumSepolia", "liquidation")).to.equal(false);
+      expect(supportsStrategy("bsc", "liquidation")).to.equal(false);
       expect(supportsStrategy("bsc", "stablecoin")).to.equal(false);
       expect(supportsStrategy("unknownChain", "arbitrage")).to.equal(false);
     });
@@ -82,7 +80,7 @@ describe("Chain Capabilities", function () {
       const liqChains = getSupportedChains("liquidation");
       expect(liqChains).to.include("arbitrum");
       expect(liqChains).to.include("base");
-      expect(liqChains).to.not.include("arbitrumSepolia");
+      expect(liqChains).to.not.include("polygon");
       expect(liqChains).to.not.include("bsc");
     });
 

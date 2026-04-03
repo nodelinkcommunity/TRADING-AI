@@ -516,23 +516,21 @@ class FlashloanBot {
     // Load RPC URL for the correct chain
     const rpcEnvMap = {
       arbitrum: "ARBITRUM_RPC_URL",
-      arbitrumSepolia: "ARBITRUM_RPC_URL",
       base: "BASE_RPC_URL",
-      baseSepolia: "BASE_RPC_URL",
       polygon: "POLYGON_RPC_URL",
       bsc: "BSC_RPC_URL",
       avalanche: "AVAX_RPC_URL",
       mantle: "MANTLE_RPC_URL",
       scroll: "SCROLL_RPC_URL",
     };
-    const chain = this.config.chain || "arbitrumSepolia";
+    const chain = this.config.chain || "arbitrum";
     const rpcEnvKey = rpcEnvMap[chain] || "ARBITRUM_RPC_URL";
     if (process.env[rpcEnvKey]) {
       this.config.rpcUrl = process.env[rpcEnvKey];
     } else {
       console.warn(`[WARN] ${rpcEnvKey} not set for chain "${chain}". Check Dashboard → Setup.`);
       // Only fallback to Arbitrum if chain IS Arbitrum (don't silently connect to wrong chain)
-      if (chain.startsWith("arbitrum") && process.env.ARBITRUM_RPC_URL) {
+      if (chain === "arbitrum" && process.env.ARBITRUM_RPC_URL) {
         this.config.rpcUrl = process.env.ARBITRUM_RPC_URL;
       }
     }
@@ -551,15 +549,8 @@ class FlashloanBot {
     const chainId = Number(network.chainId);
     console.log(`Connected to: ${network.name} (chainId: ${chainId})`);
 
-    // Detect testnet and load appropriate config
-    const isTestnet = [421614, 84532, 11155111].includes(chainId);
-    if (isTestnet) {
-      console.log("⚠️  TESTNET MODE — Using testnet DEX addresses");
-      this._loadTestnetConfig(chainId);
-    }
-
-    // Load chain-specific DEX and token configs if not testnet
-    if (!isTestnet) {
+    // Load chain-specific DEX and token configs
+    {
       try {
         const dexModule = require("../config/dex.js");
         const tokenModule = require("../config/tokens.js");
@@ -650,37 +641,6 @@ class FlashloanBot {
     }
 
     console.log("\nBot initialized successfully!\n");
-  }
-
-  /**
-   * Load testnet-specific DEX and token addresses
-   * Testnet co it DEX va token, chi co Uniswap V3 tren Arbitrum Sepolia
-   */
-  _loadTestnetConfig(chainId) {
-    if (chainId === 421614) {
-      // Arbitrum Sepolia - Uniswap V3 testnet deployment
-      this.config.dexConfigs = {
-        uniswapV3: {
-          type: "v3",
-          router: "0x101F443B4d1b059569D643917553c771E1b9663E",
-          quoter: "0x2779a0CC1c3e0E44D2542EC3e79e3864Ae93Ef0B",
-          fees: [500, 3000, 10000],
-        },
-      };
-      // Testnet tokens (Aave V3 testnet faucet tokens)
-      this.config.tokenPairs = [
-        {
-          name: "WETH/USDC (Testnet)",
-          tokenA: "0x980B62Da83eFf3D4576C647993b0c1D7faf17c73", // WETH on Arb Sepolia
-          tokenB: "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d", // USDC on Arb Sepolia
-          decimals: 18,
-          amounts: [0.01, 0.05, 0.1],
-        },
-      ];
-      console.log("Loaded Arbitrum Sepolia testnet config");
-      console.log("DEXes: Uniswap V3 (testnet)");
-      console.log("Pairs: WETH/USDC (testnet tokens)");
-    }
   }
 
   async scanOnce() {
@@ -855,7 +815,7 @@ class FlashloanBot {
           if (result) {
             // Output structured log for server to parse as real trade
             const pair = this.findPairForOpportunity(best).name?.split(' ')[0] || 'WETH/USDC';
-            const chain = this.config.chain || 'arbitrumSepolia';
+            const chain = this.config.chain || 'arbitrum';
             if (result.success) {
               this.stats.tradesExecuted++;
               console.log(`[TRADE] EXECUTED | success:true | txHash:${result.txHash} | pair:${pair} | chain:${chain} | strategy:${best.type} | profitBps:${best.profitBps} | gasUsed:${result.gasUsed} | block:${result.blockNumber} | aiScore:${aiAnalysis?.score || '-'} | riskScore:${aiAnalysis?.riskAssessment?.riskScore || '-'}`);
@@ -911,12 +871,12 @@ class FlashloanBot {
 
       // Native token price per chain (for gas cost calculation)
       const nativeTokenPrices = {
-        arbitrum: 3500, arbitrumSepolia: 3500,
-        base: 3500, baseSepolia: 3500,
+        arbitrum: 3500,
+        base: 3500,
         polygon: 0.45, bsc: 600,
         avalanche: 35, mantle: 0.80, scroll: 3500,
       };
-      const chain = this.config.chain || 'arbitrumSepolia';
+      const chain = this.config.chain || 'arbitrum';
       const nativePrice = nativeTokenPrices[chain] || 3500;
       const gasCostUsd = gasCostEth * nativePrice;
 

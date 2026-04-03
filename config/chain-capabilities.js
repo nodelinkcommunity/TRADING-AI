@@ -21,9 +21,7 @@ const CHAIN_CAPABILITIES = {
   mantle:     { arbitrage: true,  liquidation: false, stablecoin: false },
   scroll:     { arbitrage: true,  liquidation: false, stablecoin: false },
 
-  // ============ Testnets ============
-  arbitrumSepolia: { arbitrage: true,  liquidation: false, stablecoin: false },
-  baseSepolia:     { arbitrage: true,  liquidation: false, stablecoin: false },
+  // Testnets removed — production release only supports mainnets
 };
 
 /**

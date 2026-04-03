@@ -3,7 +3,6 @@
  * Deploy smart contract len blockchain
  *
  * Su dung:
- *   npx hardhat run scripts/deploy.js --network arbitrumSepolia
  *   npx hardhat run scripts/deploy.js --network arbitrum
  */
 
@@ -11,10 +10,8 @@ const hre = require("hardhat");
 
 // Aave V3 Pool Address Provider cho tung chain
 const AAVE_PROVIDERS = {
-  421614: "0xB25a5D144626a0D488e52AE717A051a2E9997076", // Arbitrum Sepolia (testnet)
   42161: "0xa97684ead0e402dC232d5A977953DF7ECBaB3CDb", // Arbitrum Mainnet
   8453: "0xe20fCBdBfFC4Dd138cE8b2E6FBb6CB49777ad64D", // Base
-  84532: "0xE4C23309117Aa30342BFaae6c95c6478e0A4Ad00", // Base Sepolia (testnet)
   137: "0xa97684ead0e402dC232d5A977953DF7ECBaB3CDb", // Polygon
   1: "0x2f39d218133AFaB8F2B819B1066c7E434Ad94E9e", // Ethereum
   43114: "0xa97684ead0e402dC232d5A977953DF7ECBaB3CDb", // Avalanche
@@ -167,8 +164,8 @@ async function main() {
   console.log("3. Switch to Live Trading when ready");
   console.log("====================================\n");
 
-  // Verify contract (optional, skip testnet)
-  if (chainId !== 31337 && chainId !== 421614 && chainId !== 84532) {
+  // Verify contract on block explorer (skip local hardhat network)
+  if (chainId !== 31337) {
     console.log("Verifying contract on block explorer...");
     try {
       await hre.run("verify:verify", {

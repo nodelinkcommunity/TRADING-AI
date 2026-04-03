@@ -475,7 +475,7 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(19
     </div>
   </div>
   <div class="top-r">
-    <span class="env-badge env-test" id="netBadge">TESTNET</span>
+    <span class="env-badge env-main" id="netBadge">MAINNET</span>
     <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Toggle Day/Night mode">
       <span id="themeIcon">&#9790;</span>
     </button>
@@ -643,8 +643,7 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(19
           <option value="avalanche">Avalanche C-Chain (Mainnet)</option>
           <option value="mantle">Mantle (Mainnet)</option>
           <option value="scroll">Scroll (Mainnet)</option>
-          <option value="arbitrumSepolia">Arbitrum Sepolia (Testnet)</option>
-          <option value="baseSepolia">Base Sepolia (Testnet)</option>
+          <!-- Testnets removed — production release -->
         </select>
         <div class="fh" id="setupChainInfo" style="margin-top:6px;font-size:12px">Gas token: <b>ETH</b> &nbsp;|&nbsp; Flash Loan: <b>Aave V3</b></div>
       </div>
@@ -704,7 +703,7 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(19
 
   <div class="card">
     <div class="card-header">
-      <div><div class="card-title">Step 2 &mdash; Compile & Deploy Smart Contract</div><div class="card-subtitle">Deploy target: <strong id="deployTargetLabel" style="color:var(--accent)">arbitrumSepolia</strong> — change in Trading Configuration</div></div>
+      <div><div class="card-title">Step 2 &mdash; Compile & Deploy Smart Contract</div><div class="card-subtitle">Deploy target: <strong id="deployTargetLabel" style="color:var(--accent)">arbitrum</strong> — change in Trading Configuration</div></div>
     </div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
       <button class="btn btn-warning" id="btnCompile" onclick="doCompile()">Compile Contracts</button>
@@ -834,8 +833,8 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(19
   <div class="guide-step">
     <div class="guide-num">1</div>
     <div class="guide-content">
-      <h4>Always Start on Testnet</h4>
-      <p>Deploy to Arbitrum Sepolia first. Run bots for at least 48 hours in monitor-only mode (Auto Execute = OFF) to verify opportunity detection, gas estimation accuracy, and that the bot handles edge cases like reverted transactions, stale prices, and network congestion.</p>
+      <h4>Start with Paper Trading</h4>
+      <p>Deploy to Arbitrum One first. Run bots for at least 48 hours in monitor-only mode (Auto Execute = OFF) to verify opportunity detection, gas estimation accuracy, and that the bot handles edge cases like reverted transactions, stale prices, and network congestion.</p>
     </div>
   </div>
 
@@ -891,7 +890,7 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(19
     <div class="guide-num">8</div>
     <div class="guide-content">
       <h4>Mainnet Migration Checklist</h4>
-      <p>Before going live: (1) Testnet ran 72+ hours with no critical errors. (2) Contract verified on Arbiscan. (3) Auto Execute tested on testnet with real flashloans. (4) Dedicated wallet funded with 0.01 ETH for gas. (5) Telegram alerts configured. (6) PM2 auto-restart confirmed. (7) VPS has at least 1GB RAM and stable internet.</p>
+      <p>Before going live: (1) Paper trading ran 72+ hours with no critical errors. (2) Contract verified on block explorer. (3) Auto Execute tested with small flash amounts. (4) Dedicated wallet funded with 0.01 ETH for gas. (5) Telegram alerts configured. (6) PM2 auto-restart confirmed. (7) VPS has at least 1GB RAM and stable internet.</p>
     </div>
   </div>
 
@@ -926,10 +925,8 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(19
         <div class="fg">
           <label class="fl">Target Networks <span style="color:var(--text3)">(select multiple)</span></label>
           <div id="cfgChains" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px">
-            <label class="chain-check"><input type="checkbox" value="arbitrumSepolia"> <span class="chain-tag test">Arbitrum Sepolia</span></label>
             <label class="chain-check"><input type="checkbox" value="arbitrum"> <span class="chain-tag main">Arbitrum One</span></label>
             <label class="chain-check"><input type="checkbox" value="base"> <span class="chain-tag main">Base</span></label>
-            <label class="chain-check"><input type="checkbox" value="baseSepolia"> <span class="chain-tag test">Base Sepolia</span></label>
             <label class="chain-check"><input type="checkbox" value="polygon"> <span class="chain-tag main">Polygon</span></label>
             <label class="chain-check"><input type="checkbox" value="bsc"> <span class="chain-tag main">BSC (BNB)</span></label>
             <label class="chain-check"><input type="checkbox" value="avalanche"> <span class="chain-tag main">Avalanche</span></label>
@@ -952,7 +949,7 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(19
             <label class="toggle"><input type="checkbox" id="cfgAutoExec"><span></span></label>
             <span id="autoLabel" style="font-size:11px;font-weight:600;color:var(--red)">OFF &mdash; Monitor Only</span>
           </div>
-          <div class="fh">When OFF, the bot detects opportunities but does not execute. Enable only after thorough testnet validation.</div>
+          <div class="fh">When OFF, the bot detects opportunities but does not execute. Enable only after thorough paper trading validation.</div>
         </div>
         <div class="fg">
           <label class="fl">Flash Loan Amount (USD)</label>
@@ -1408,11 +1405,11 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(19
     <div class="g3">
       <div style="background:var(--bg3);border-radius:10px;padding:16px;border:1px solid rgba(16,185,129,.15)">
         <div style="font-weight:700;color:var(--green);margin-bottom:8px">Beginner</div>
-        <p style="font-size:12px;color:var(--text2);line-height:1.7">Enable only <strong>Stablecoin Depeg</strong> and <strong>DEX Arbitrage</strong>. Set Auto Execute OFF. Min Profit 30+ bps. Max Slippage 30 bps. Monitor for 1 week before enabling execution. Use testnet only.</p>
+        <p style="font-size:12px;color:var(--text2);line-height:1.7">Enable only <strong>Stablecoin Depeg</strong> and <strong>DEX Arbitrage</strong>. Set Auto Execute OFF. Min Profit 30+ bps. Max Slippage 30 bps. Monitor for 1 week before enabling execution. Use paper trading only.</p>
       </div>
       <div style="background:var(--bg3);border-radius:10px;padding:16px;border:1px solid rgba(245,158,11,.15)">
         <div style="font-weight:700;color:var(--yellow);margin-bottom:8px">Intermediate</div>
-        <p style="font-size:12px;color:var(--text2);line-height:1.7">Add <strong>Triangular Arbitrage</strong> and <strong>Liquidation Sniping</strong>. Min Profit 15 bps. Auto Execute ON (testnet proven). Deploy to Arbitrum mainnet with small flash amounts ($10K). Enable Telegram alerts.</p>
+        <p style="font-size:12px;color:var(--text2);line-height:1.7">Add <strong>Triangular Arbitrage</strong> and <strong>Liquidation Sniping</strong>. Min Profit 15 bps. Auto Execute ON (paper trading proven). Deploy to Arbitrum with small flash amounts ($10K). Enable Telegram alerts.</p>
       </div>
       <div style="background:var(--bg3);border-radius:10px;padding:16px;border:1px solid rgba(239,68,68,.15)">
         <div style="font-weight:700;color:var(--red);margin-bottom:8px">Advanced</div>
@@ -2138,11 +2135,11 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(19
     <div style="margin-bottom:20px">
       <div style="font-size:14px;font-weight:700;color:var(--accent);margin-bottom:10px;display:flex;align-items:center;gap:8px">
         <span style="background:var(--accent);color:#fff;border-radius:50%;width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:800">1</span>
-        Phase 1 — Foundation & Testnet
+        Phase 1 — Foundation & Paper Trading
       </div>
       <div style="font-size:12px;padding-left:32px;display:flex;flex-direction:column" id="phase1Checklist">
         <label class="chk-label"><input type="checkbox" data-phase="1" data-item="0"> Setup project structure & smart contracts</label>
-        <label class="chk-label"><input type="checkbox" data-phase="1" data-item="1"> Deploy contracts to Arbitrum Sepolia (testnet)</label>
+        <label class="chk-label"><input type="checkbox" data-phase="1" data-item="1"> Deploy contracts to Arbitrum One (mainnet)</label>
         <label class="chk-label"><input type="checkbox" data-phase="1" data-item="2"> Configure RPC endpoints (Alchemy/Infura)</label>
         <label class="chk-label"><input type="checkbox" data-phase="1" data-item="3"> Web3 wallet authentication working</label>
         <label class="chk-label"><input type="checkbox" data-phase="1" data-item="4"> Paper trading mode — bot scanning & simulating trades</label>
@@ -2211,7 +2208,7 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(19
   <div class="card">
     <div class="card-header"><div class="card-title">&#128221; Notes & Agreements</div></div>
     <div class="page-desc" style="margin-bottom:10px">Private notes between operator and developer. Record decisions, parameters, known issues, or any agreements.</div>
-    <textarea id="notesFreeText" style="width:100%;min-height:200px;resize:vertical;font-family:'SF Mono',Monaco,monospace;font-size:12px;line-height:1.8;padding:14px" placeholder="Write your notes here...&#10;&#10;Example:&#10;- Agreed min profit: 15 bps for testnet, 25 bps for mainnet&#10;- Gas limit: 500k per trade&#10;- Target chains: Arbitrum > Base > Polygon&#10;- Risk level: Conservative initially, upgrade after 7 days&#10;- Weekly review every Monday"></textarea>
+    <textarea id="notesFreeText" style="width:100%;min-height:200px;resize:vertical;font-family:'SF Mono',Monaco,monospace;font-size:12px;line-height:1.8;padding:14px" placeholder="Write your notes here...&#10;&#10;Example:&#10;- Agreed min profit: 15 bps paper trading, 25 bps live&#10;- Gas limit: 500k per trade&#10;- Target chains: Arbitrum > Base > Polygon&#10;- Risk level: Conservative initially, upgrade after 7 days&#10;- Weekly review every Monday"></textarea>
     <div style="display:flex;gap:8px;margin-top:8px">
       <button class="btn btn-primary btn-sm" onclick="saveNotes()">Save Notes</button>
       <span id="notesSaveStatus" style="font-size:12px;line-height:32px"></span>
@@ -2719,16 +2716,14 @@ let state={};
 
 // ===== NAVIGATION =====
 const _chainNames={
-  arbitrum:"Arbitrum One",arbitrumSepolia:"Arbitrum Sepolia",
-  base:"Base",baseSepolia:"Base Sepolia",
+  arbitrum:"Arbitrum One",
+  base:"Base",
   polygon:"Polygon",bsc:"BSC (BNB Chain)",
   avalanche:"Avalanche",mantle:"Mantle",scroll:"Scroll",
 };
 const _rpcPlaceholders={
   arbitrum:"https://arb-mainnet.g.alchemy.com/v2/YOUR_KEY",
-  arbitrumSepolia:"https://arb-sepolia.g.alchemy.com/v2/YOUR_KEY",
   base:"https://base-mainnet.g.alchemy.com/v2/YOUR_KEY",
-  baseSepolia:"https://base-sepolia.g.alchemy.com/v2/YOUR_KEY",
   polygon:"https://polygon-mainnet.g.alchemy.com/v2/YOUR_KEY",
   bsc:"https://bsc-dataseed1.binance.org or Alchemy",
   avalanche:"https://api.avax.network/ext/bc/C/rpc or Alchemy",
@@ -2736,17 +2731,17 @@ const _rpcPlaceholders={
   scroll:"https://rpc.scroll.io",
 };
 const _gasTokens={
-  arbitrum:"ETH",arbitrumSepolia:"ETH",base:"ETH",baseSepolia:"ETH",
+  arbitrum:"ETH",base:"ETH",
   polygon:"MATIC",bsc:"BNB",avalanche:"AVAX",mantle:"MNT",scroll:"ETH",
 };
 const _flashProviders={
-  arbitrum:"Aave V3",arbitrumSepolia:"Aave V3",base:"Aave V3",baseSepolia:"Aave V3",
+  arbitrum:"Aave V3",base:"Aave V3",
   polygon:"Aave V3",avalanche:"Aave V3",scroll:"Aave V3",mantle:"Lendle (Aave fork)",
   bsc:"PancakeSwap V3",
 };
 
 function updateSetupLabels(){
-  const chain=state?.config?.chain||"arbitrumSepolia";
+  const chain=state?.config?.chain||"arbitrum";
   const sel=$('setupChainSelect');
   if(sel)sel.value=chain;
   _applySetupChain(chain);
@@ -2761,9 +2756,7 @@ function updateSetupLabels(){
 
 const _rpcGuides={
   arbitrum:{example:'https://arb-mainnet.g.alchemy.com/v2/YOUR_API_KEY',providers:['Alchemy','Infura','QuickNode'],docs:'https://docs.arbitrum.io/build-decentralized-apps/reference/node-providers'},
-  arbitrumSepolia:{example:'https://arb-sepolia.g.alchemy.com/v2/YOUR_API_KEY',providers:['Alchemy','Infura'],docs:'https://docs.arbitrum.io/build-decentralized-apps/reference/node-providers'},
   base:{example:'https://base-mainnet.g.alchemy.com/v2/YOUR_API_KEY',providers:['Alchemy','QuickNode','Infura'],docs:'https://docs.base.org/docs/tools/node-providers'},
-  baseSepolia:{example:'https://base-sepolia.g.alchemy.com/v2/YOUR_API_KEY',providers:['Alchemy'],docs:'https://docs.base.org/docs/tools/node-providers'},
   polygon:{example:'https://polygon-mainnet.g.alchemy.com/v2/YOUR_API_KEY',providers:['Alchemy','Infura','QuickNode'],docs:'https://wiki.polygon.technology/docs/tools/node-providers'},
   bsc:{example:'https://bsc-dataseed1.binance.org',providers:['Public RPC','QuickNode','Ankr'],docs:'https://docs.bnbchain.org/docs/rpc'},
   avalanche:{example:'https://api.avax.network/ext/bc/C/rpc',providers:['Public RPC','Infura','QuickNode'],docs:'https://docs.avax.network/tooling/rpc-providers'},
@@ -2826,10 +2819,10 @@ async function onSetupChainChange(){
 function renderContractsTable(){
   const addrs=state.config?.contractAddresses||{};
   const liqAddrs=state.config?.liquidationContractAddresses||{};
-  const chains=state.config?.chains||["arbitrumSepolia"];
+  const chains=state.config?.chains||["arbitrum"];
   const names={
-    arbitrum:"Arbitrum One",arbitrumSepolia:"Arbitrum Sepolia",
-    base:"Base",baseSepolia:"Base Sepolia",polygon:"Polygon",
+    arbitrum:"Arbitrum One",
+    base:"Base",polygon:"Polygon",
     bsc:"BSC (BNB Chain)",avalanche:"Avalanche",mantle:"Mantle",scroll:"Scroll"
   };
   const tbody=$('contractsBody');
@@ -2859,7 +2852,7 @@ function renderContractsTable(){
     }
     return rows;
   }).join('');
-  const currentChain=state.config?.chain||"arbitrumSepolia";
+  const currentChain=state.config?.chain||"arbitrum";
   $('inContract').value=addrs[currentChain]||'';
 }
 
@@ -2939,7 +2932,7 @@ function updateUI(){
 
   // Config panel
   // Multi-chain checkboxes
-  const selectedChains=c.chains||[c.chain||'arbitrumSepolia'];
+  const selectedChains=c.chains||[c.chain||'arbitrum'];
   document.querySelectorAll('#cfgChains input[type=checkbox]').forEach(cb=>{
     cb.checked=selectedChains.includes(cb.value);
     cb.onchange=updateGasWarning;
@@ -2959,9 +2952,9 @@ function updateUI(){
   updateSetupLabels();
 
   // Network badge
-  const selChains=c.chains||[c.chain||'arbitrumSepolia'];
-  const hasTestnet=selChains.some(ch=>ch.toLowerCase().includes('sepolia'));
-  const hasMainnet=selChains.some(ch=>!ch.toLowerCase().includes('sepolia'));
+  const selChains=c.chains||[c.chain||'arbitrum'];
+  const hasTestnet=false; // Production only
+  const hasMainnet=selChains.length>0;
   if(hasTestnet&&!hasMainnet){$('netBadge').textContent='TESTNET';$('netBadge').className='env-badge env-test';}
   else if(hasMainnet&&!hasTestnet){$('netBadge').textContent='MAINNET';$('netBadge').className='env-badge env-main';}
   else if(hasMainnet&&hasTestnet){$('netBadge').textContent='MULTI';$('netBadge').className='env-badge env-main';}
@@ -2986,7 +2979,7 @@ function updateUI(){
 }
 
 function updateBotCapabilityBadges(){
-  const chain = state?.config?.chain || 'arbitrumSepolia';
+  const chain = state?.config?.chain || 'arbitrum';
   const caps = state?.chainCapabilities?.[chain] || {};
   const liqAddr = state?.config?.liquidationContractAddresses?.[chain] || '';
 
@@ -3048,7 +3041,7 @@ function updateAutoLabel(){
   $('autoLabel').style.color=on?'var(--green)':'var(--red)';
 }
 function updateGasWarning(){
-  const gasMap={arbitrum:'ETH',arbitrumSepolia:'ETH (testnet)',base:'ETH',baseSepolia:'ETH (testnet)',polygon:'MATIC',bsc:'BNB',avalanche:'AVAX',mantle:'MNT',scroll:'ETH'};
+  const gasMap={arbitrum:'ETH',base:'ETH',polygon:'MATIC',bsc:'BNB',avalanche:'AVAX',mantle:'MNT',scroll:'ETH'};
   const selected=[...document.querySelectorAll('#cfgChains input:checked')].map(cb=>cb.value);
   const tokens=[...new Set(selected.map(c=>gasMap[c]).filter(Boolean))];
   const w=$('gasWarning');
@@ -3083,7 +3076,7 @@ async function refreshBalances(){
     const maxGas=parseInt($('cfgGas')?.value||5);
     const flashAmount=parseInt($('cfgFlash')?.value||50000);
     // Base recommendations at default config (50K loan, 5 gwei, 3s scan)
-    const recMap={ETH:0.01,MATIC:5,BNB:0.05,AVAX:0.5,MNT:5,'ETH (testnet)':0.1};
+    const recMap={ETH:0.01,MATIC:5,BNB:0.05,AVAX:0.5,MNT:5};
 
     let html='';
     for(const b of res.balances){
@@ -3242,8 +3235,8 @@ async function doCompile(){
   await apiCall('compile','POST');
 }
 async function doDeploy(){
-  const chain=state.config?.chain||'arbitrumSepolia';
-  const chainNames={arbitrum:"Arbitrum One",arbitrumSepolia:"Arbitrum Sepolia",base:"Base",baseSepolia:"Base Sepolia",polygon:"Polygon",bsc:"BSC (BNB Chain)",avalanche:"Avalanche",mantle:"Mantle",scroll:"Scroll"};
+  const chain=state.config?.chain||'arbitrum';
+  const chainNames={arbitrum:"Arbitrum One",base:"Base",polygon:"Polygon",bsc:"BSC (BNB Chain)",avalanche:"Avalanche",mantle:"Mantle",scroll:"Scroll"};
   if(!confirm('Deploy smart contract to '+(chainNames[chain]||chain)+'?\n\nThis will cost gas. Make sure your wallet is funded.'))return;
 
   const btn=$('btnDeploy');
@@ -3540,10 +3533,8 @@ function truncHash(hash){
 
 function getExplorerUrl(chain,hash){
   const explorers={
-    arbitrumSepolia:'https://sepolia.arbiscan.io/tx/',
     arbitrum:'https://arbiscan.io/tx/',
     base:'https://basescan.org/tx/',
-    baseSepolia:'https://sepolia.basescan.org/tx/',
     polygon:'https://polygonscan.com/tx/',
     bsc:'https://bscscan.com/tx/',
     avalanche:'https://snowtrace.io/tx/',
@@ -3900,7 +3891,7 @@ function generateQuiraResponse(question) {
     return 'Profitability depends on many factors:<br>- <b>Market volatility</b>: More volatility = more opportunities<br>- <b>Chain selection</b>: Higher TVL chains have more liquidity<br>- <b>Gas costs</b>: Lower gas = lower profit threshold needed<br>- <b>Competition</b>: Other bots compete for the same opportunities<br>- <b>Parameters</b>: minProfitBps, slippage, flash amount<br><br>Use <b>Backtesting</b> to estimate potential returns before risking real capital. Start with Paper Trading!';
   }
   if (q.includes('chain') || q.includes('network') || q.includes('which')) {
-    return 'Chain recommendations:<br>- <b>Arbitrum</b>: Best for beginners — low gas, high liquidity, many DEXs<br>- <b>Base</b>: Growing fast, low competition<br>- <b>BSC</b>: Highest volume, uses PancakeSwap V3 flash loans<br>- <b>Polygon</b>: Very low gas but lower TVL<br>- <b>Avalanche</b>: Good opportunities with TraderJoe<br><br>Start with <b>Arbitrum Sepolia</b> (testnet) for testing!';
+    return 'Chain recommendations:<br>- <b>Arbitrum</b>: Best for beginners — low gas, high liquidity, many DEXs<br>- <b>Base</b>: Growing fast, low competition<br>- <b>BSC</b>: Highest volume, uses PancakeSwap V3 flash loans<br>- <b>Polygon</b>: Very low gas but lower TVL<br>- <b>Avalanche</b>: Good opportunities with TraderJoe<br><br>Start with <b>Arbitrum</b> and paper trading mode!';
   }
   if (q.includes('stop') || q.includes('pause') || q.includes('emergency')) {
     return 'To stop the bot:<br>- Go to <b>Bot Control</b> → click <b>Stop</b><br>- Or click <b>Stop All</b> to stop everything<br><br>Emergency features:<br>- <b>Circuit Breaker</b>: Auto-stops after consecutive failures<br>- <b>Daily Loss Limit</b>: Pauses when losses exceed threshold<br>- <b>Contract Pause</b>: Call setPaused(true) on the smart contract<br>- <b>Withdraw</b>: Call withdrawProfit() to pull all tokens from contract';
