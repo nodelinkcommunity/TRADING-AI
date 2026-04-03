@@ -405,9 +405,13 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,
       <span id="deployStatus" style="font-size:13px;margin-left:8px"></span>
     </div>
     <div id="deployOutput" style="margin-top:12px;background:var(--bg1);border-radius:8px;padding:12px;font-family:monospace;font-size:12px;max-height:300px;overflow-y:auto;display:none;white-space:pre-wrap;line-height:1.6"></div>
-    <div class="fg" style="margin-top:14px">
-      <label class="fl">Contract Address <span style="color:var(--text3)">(Auto-filled after deploy)</span></label>
-      <input type="text" id="inContract" placeholder="0x... (auto-populated or paste manually)">
+    <div style="margin-top:14px">
+      <label class="fl" style="margin-bottom:8px;display:block">Deployed Contracts per Chain</label>
+      <table class="data-table" id="contractsTable" style="font-size:12px">
+        <thead><tr><th>Chain</th><th>Contract Address</th><th>Status</th></tr></thead>
+        <tbody id="contractsBody"></tbody>
+      </table>
+      <input type="hidden" id="inContract">
     </div>
   </div>
 
@@ -1390,6 +1394,32 @@ function updateSetupLabels(){
   if(el3&&!el3.value)el3.placeholder=rpcPlaceholders[chain]||"https://...";
 }
 
+function renderContractsTable(){
+  const addrs=state.config?.contractAddresses||{};
+  const chains=state.config?.chains||["arbitrumSepolia"];
+  const names={
+    arbitrum:"Arbitrum One",arbitrumSepolia:"Arbitrum Sepolia",
+    base:"Base",baseSepolia:"Base Sepolia",polygon:"Polygon",
+    bsc:"BSC (BNB Chain)",avalanche:"Avalanche",mantle:"Mantle",scroll:"Scroll"
+  };
+  const tbody=$('contractsBody');
+  if(!tbody)return;
+  const allChains=[...new Set([...chains,...Object.keys(addrs)])];
+  tbody.innerHTML=allChains.map(ch=>{
+    const addr=addrs[ch]||'';
+    const isActive=chains.includes(ch);
+    const statusHtml=addr
+      ?'<span style="color:var(--green)">Deployed</span>'
+      :(isActive?'<span style="color:var(--yellow)">Not deployed</span>':'<span style="color:var(--text3)">\u2014</span>');
+    const addrHtml=addr
+      ?'<code style="font-size:11px;color:var(--accent)">'+addr.slice(0,6)+'...'+addr.slice(-4)+'</code> <button class="btn btn-sm" style="font-size:10px;padding:2px 6px;margin-left:4px" onclick="navigator.clipboard.writeText(\''+addr+'\');this.textContent=\'Copied!\';setTimeout(()=>this.textContent=\'Copy\',1500)">Copy</button>'
+      :'<span style="color:var(--text3)">\u2014</span>';
+    return '<tr><td><strong>'+(names[ch]||ch)+'</strong></td><td>'+addrHtml+'</td><td>'+statusHtml+'</td></tr>';
+  }).join('');
+  const currentChain=state.config?.chain||"arbitrumSepolia";
+  $('inContract').value=addrs[currentChain]||'';
+}
+
 function navigate(name){
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.sb-btn').forEach(b=>b.classList.remove('active'));
@@ -1449,7 +1479,7 @@ function updateUI(){
   $('cfgSlip').value=c.maxSlippageBps;$('vSlip').textContent=c.maxSlippageBps;
   $('cfgScan').value=Math.round(c.scanIntervalMs/1000);$('vScan').textContent=Math.round(c.scanIntervalMs/1000);
   $('cfgGas').value=c.maxGasGwei;$('vGas').textContent=c.maxGasGwei;
-  if(c.contractAddress)$('inContract').value=c.contractAddress;
+  renderContractsTable();
 
   // Update setup labels for selected chain
   updateSetupLabels();
@@ -1625,6 +1655,7 @@ async function saveConfig(btn){
       maxGasGwei:parseInt($('cfgGas').value),
       flashAmountUsd:parseInt($('cfgFlash').value),
       contractAddress:$('inContract').value,
+      contractAddresses:state.config?.contractAddresses||{},
     });
     if(res.success){
       btn.textContent='✅ Saved!';btn.style.background='var(--green)';
@@ -1684,8 +1715,9 @@ async function doCompile(){
   await apiCall('compile','POST');
 }
 async function doDeploy(){
-  const chain=$('cfgChain')?.value||'arbitrumSepolia';
-  if(!confirm('Deploy smart contract to '+chain+'?\n\nThis will cost gas. Make sure your wallet is funded.'))return;
+  const chain=state.config?.chain||'arbitrumSepolia';
+  const chainNames={arbitrum:"Arbitrum One",arbitrumSepolia:"Arbitrum Sepolia",base:"Base",baseSepolia:"Base Sepolia",polygon:"Polygon",bsc:"BSC (BNB Chain)",avalanche:"Avalanche",mantle:"Mantle",scroll:"Scroll"};
+  if(!confirm('Deploy smart contract to '+(chainNames[chain]||chain)+'?\n\nThis will cost gas. Make sure your wallet is funded.'))return;
 
   const btn=$('btnDeploy');
   const status=$('deployStatus');
@@ -1711,9 +1743,13 @@ async function doDeploy(){
     btn.disabled=false;
     if(result.code===0&&result.contractAddress){
       btn.textContent='✅ Deployed!';
-      status.textContent='Contract deployed: '+result.contractAddress;
+      status.textContent='Contract deployed on '+(result.chain||chain)+': '+result.contractAddress;
       status.style.color='var(--green)';
-      $('inContract').value=result.contractAddress;
+      // Update per-chain contract addresses in local state
+      if(!state.config.contractAddresses) state.config.contractAddresses={};
+      state.config.contractAddresses[result.chain||chain]=result.contractAddress;
+      state.config.contractAddress=result.contractAddress;
+      renderContractsTable();
     } else if(result.code===0){
       btn.textContent='✅ Done';
       status.textContent='Deployment completed. Check output for address.';
@@ -1799,7 +1835,14 @@ socket.on('log',addLogLine);
 socket.on('recentLogs',logs=>{if(Array.isArray(logs))logs.forEach(addLogLine);});
 socket.on('botStatus',updateBotDots);
 socket.on('stats',updateStats);
-socket.on('deployResult',d=>{if(d&&d.contractAddress)$('inContract').value=d.contractAddress;});
+socket.on('deployResult',d=>{
+  if(d&&d.contractAddress){
+    if(!state.config.contractAddresses)state.config.contractAddresses={};
+    state.config.contractAddresses[d.chain||state.config.chain]=d.contractAddress;
+    state.config.contractAddress=d.contractAddress;
+    renderContractsTable();
+  }
+});
 
 // ===== AI STATUS =====
 function updateAIStatus(ai){

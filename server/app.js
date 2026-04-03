@@ -48,6 +48,7 @@ const DEFAULT_CONFIG = {
   chain: "arbitrumSepolia",
   chains: ["arbitrumSepolia"],
   contractAddress: "",
+  contractAddresses: {},
 
   // Trading parameters
   paperTrading: true,
@@ -256,6 +257,11 @@ function loadConfig() {
           merged.strategies[key] = { ...DEFAULT_CONFIG.strategies[key], ...val };
         }
       }
+      // Migrate old single contractAddress to per-chain map
+      if (!merged.contractAddresses) merged.contractAddresses = {};
+      if (merged.contractAddress && !merged.contractAddresses[merged.chain]) {
+        merged.contractAddresses[merged.chain] = merged.contractAddress;
+      }
       return merged;
     }
   } catch (e) {
@@ -355,7 +361,11 @@ function startBot(botName) {
     env: {
       ...process.env,
       ...loadEnvVars(),
-      ...(config.contractAddress ? { CONTRACT_ADDRESS: config.contractAddress } : {}),
+      ...((() => {
+        const botChain = config.chain || "arbitrumSepolia";
+        const addr = config.contractAddresses?.[botChain] || config.contractAddress || "";
+        return addr ? { CONTRACT_ADDRESS: addr } : {};
+      })()),
       BOT_CHAIN: config.chain || "arbitrumSepolia",
       FLASH_AMOUNT_USD: String(config.flashAmountUsd || 50000),
       PAPER_TRADING: config.paperTrading ? "true" : "false",
@@ -698,6 +708,11 @@ app.post("/api/config", (req, res) => {
   // Don't allow overwriting strategies via this endpoint
   const { strategies, ...rest } = updates;
   config = { ...config, ...rest };
+  // If a contractAddress was provided, save it per-chain too
+  if (rest.contractAddress && config.chain) {
+    if (!config.contractAddresses) config.contractAddresses = {};
+    config.contractAddresses[config.chain] = rest.contractAddress;
+  }
   saveConfig();
   addLog("info", "server", "Configuration updated");
   io.emit("configUpdate", config);
@@ -834,13 +849,16 @@ app.post("/api/deploy", (req, res) => {
   proc.on("close", (code) => {
     const addrMatch = output.match(/(?:deployed|Contract).*?(0x[a-fA-F0-9]{40})/i);
     if (addrMatch) {
-      config.contractAddress = addrMatch[1];
+      const deployChain = config.chain || "arbitrumSepolia";
+      if (!config.contractAddresses) config.contractAddresses = {};
+      config.contractAddresses[deployChain] = addrMatch[1];
+      config.contractAddress = addrMatch[1]; // backward compat
       saveConfig();
-      addLog("info", "deploy", `Contract deployed at: ${addrMatch[1]}`);
+      addLog("info", "deploy", `Contract deployed on ${deployChain}: ${addrMatch[1]}`);
     }
     const msg = code === 0 ? "Deployment completed" : `Deployment failed (exit code: ${code})`;
     addLog(code === 0 ? "info" : "error", "deploy", msg);
-    io.emit("deployResult", { code, output, contractAddress: addrMatch?.[1] });
+    io.emit("deployResult", { code, output, contractAddress: addrMatch?.[1], chain: config.chain || "arbitrumSepolia" });
   });
 
   res.json({ success: true, message: `Deployment to ${network} started. Check logs for progress.` });
