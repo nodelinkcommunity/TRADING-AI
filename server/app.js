@@ -175,11 +175,12 @@ function recalcStats() {
   let paperWins = 0;
 
   for (const t of tradeHistory) {
-    // Count paper trades separately
+    // Count paper trades separately — don't mix into real trade stats
     if (t.paper) {
       tradeStats.paperTrades++;
       tradeStats.paperProfitUsd += (t.profitUsd || 0);
       if (t.success) paperWins++;
+      continue; // Skip paper trades from main statistics
     }
 
     tradeStats.totalTrades++;
@@ -958,6 +959,8 @@ app.post("/api/trades/test", (req, res) => {
   const sampleTrade = {
     id: Date.now(),
     timestamp: Date.now(),
+    paper: true,
+    test: true,
     strategy: ["dexArbitrage","triangular","liquidation","stablecoin"][Math.floor(Math.random()*4)],
     chain: config.chains?.[0] || "arbitrumSepolia",
     pair: ["WETH/USDC","WETH/USDT","WETH/ARB","USDC/USDT"][Math.floor(Math.random()*4)],

@@ -366,7 +366,7 @@ class ArbitrageExecutor {
       tokenOut: step.tokenOut,
       fee: step.fee,
       isV3: step.type === "v3",
-      amountOutMin: (step.expectedOut * 995n) / 1000n, // 0.5% slippage
+      amountOutMin: step.expectedOut ? (step.expectedOut * 995n) / 1000n : 0n, // 0.5% slippage
     }));
 
     return abiCoder.encode(
@@ -390,12 +390,19 @@ class ArbitrageExecutor {
       // Encode params
       const params = this.encodeSwapSteps(opportunity.steps);
 
+      // Build args — BSC needs 5 params (token, amount, params, pairedToken, poolFee)
+      let execArgs;
+      if (this.isBSC) {
+        // For BSC: paired token is the second token in step 0, pool fee from step 0
+        const pairedToken = opportunity.steps[0]?.tokenOut || ethers.ZeroAddress;
+        const poolFee = opportunity.steps[0]?.fee || 2500;
+        execArgs = [opportunity.tokenIn, opportunity.flashAmount, params, pairedToken, poolFee];
+      } else {
+        execArgs = [opportunity.tokenIn, opportunity.flashAmount, params];
+      }
+
       // Uoc tinh gas
-      const gasEstimate = await this.contract.executeArbitrage.estimateGas(
-        opportunity.tokenIn,
-        opportunity.flashAmount,
-        params
-      );
+      const gasEstimate = await this.contract.executeArbitrage.estimateGas(...execArgs);
 
       const feeData = await this.provider.getFeeData();
       const gasCost = gasEstimate * feeData.gasPrice;
@@ -414,9 +421,7 @@ class ArbitrageExecutor {
 
       // Gui transaction
       const tx = await this.contract.executeArbitrage(
-        opportunity.tokenIn,
-        opportunity.flashAmount,
-        params,
+        ...execArgs,
         {
           gasLimit: (gasEstimate * 120n) / 100n, // +20% buffer
           maxFeePerGas: feeData.maxFeePerGas,
@@ -466,7 +471,14 @@ class ArbitrageExecutor {
 
 class FlashloanBot {
   constructor(configPath) {
-    this.config = require(configPath || "../config/config.json");
+    // Prefer server-saved config (Dashboard settings), fallback to template config
+    const serverConfigPath = require("path").join(__dirname, "..", "server", "data", "config.json");
+    let cfgPath = configPath;
+    if (!cfgPath) {
+      try { require("fs").accessSync(serverConfigPath); cfgPath = serverConfigPath; }
+      catch (_) { cfgPath = "../config/config.json"; }
+    }
+    this.config = require(cfgPath);
     this.isRunning = false;
     this.stats = {
       scansCompleted: 0,
@@ -862,8 +874,9 @@ class FlashloanBot {
     console.log("Starting monitoring loop...");
     console.log(`Scan interval: ${this.config.scanIntervalMs}ms`);
     console.log(`Min profit: ${this.config.minProfitBps} bps`);
+    const isPaper = process.env.PAPER_TRADING === "true" || !this.config.autoExecute;
     console.log(`Auto execute: ${this.config.autoExecute}`);
-    console.log(`Paper trading: ON`);
+    console.log(`Paper trading: ${isPaper ? 'ON' : 'OFF (live execution)'}`);
     console.log("Press Ctrl+C to stop\n");
 
     // Signal handlers
