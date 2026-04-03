@@ -32,6 +32,13 @@ const FLASHLOAN_CONTRACT_ABI = [
   "function totalProfit() view returns (uint256)",
 ];
 
+// BSC uses PancakeSwap V3 flash loan — different function signature
+const FLASHLOAN_BSC_CONTRACT_ABI = [
+  "function executeArbitrage(address _token, uint256 _amount, bytes calldata _params, address _pairedToken, uint24 _poolFee) external",
+  "function totalTrades() view returns (uint256)",
+  "function totalProfit() view returns (uint256)",
+];
+
 // ============ Core Classes ============
 
 class PriceMonitor {
@@ -334,15 +341,16 @@ class OpportunityFinder {
 }
 
 class ArbitrageExecutor {
-  constructor(provider, wallet, contractAddress, config) {
+  constructor(provider, wallet, contractAddress, config, abi) {
     this.provider = provider;
     this.wallet = wallet;
     this.contract = new ethers.Contract(
       contractAddress,
-      FLASHLOAN_CONTRACT_ABI,
+      abi || FLASHLOAN_CONTRACT_ABI,
       wallet
     );
     this.config = config;
+    this.isBSC = false;
     this.executionLog = [];
   }
 
@@ -497,8 +505,15 @@ class FlashloanBot {
     };
     const chain = this.config.chain || "arbitrumSepolia";
     const rpcEnvKey = rpcEnvMap[chain] || "ARBITRUM_RPC_URL";
-    if (process.env[rpcEnvKey]) this.config.rpcUrl = process.env[rpcEnvKey];
-    else if (process.env.ARBITRUM_RPC_URL) this.config.rpcUrl = process.env.ARBITRUM_RPC_URL;
+    if (process.env[rpcEnvKey]) {
+      this.config.rpcUrl = process.env[rpcEnvKey];
+    } else {
+      console.warn(`[WARN] ${rpcEnvKey} not set for chain "${chain}". Check Dashboard → Setup.`);
+      // Only fallback to Arbitrum if chain IS Arbitrum (don't silently connect to wrong chain)
+      if (chain.startsWith("arbitrum") && process.env.ARBITRUM_RPC_URL) {
+        this.config.rpcUrl = process.env.ARBITRUM_RPC_URL;
+      }
+    }
 
     // Validate required config
     if (!this.config.privateKey || this.config.privateKey.includes("YOUR_")) {
@@ -585,13 +600,18 @@ class FlashloanBot {
 
     // Setup executor only if contract address is valid
     if (this.config.contractAddress && !this.config.contractAddress.includes("YOUR_")) {
+      // Use BSC ABI for BSC chain (PancakeSwap V3 flash loan has 5-param executeArbitrage)
+      const isBSC = chain === "bsc";
+      const contractAbi = isBSC ? FLASHLOAN_BSC_CONTRACT_ABI : FLASHLOAN_CONTRACT_ABI;
       this.executor = new ArbitrageExecutor(
         this.provider,
         this.wallet,
         this.config.contractAddress,
-        this.config
+        this.config,
+        contractAbi
       );
-      console.log(`Contract: ${this.config.contractAddress}`);
+      this.executor.isBSC = isBSC;
+      console.log(`Contract: ${this.config.contractAddress}${isBSC ? ' (BSC/PancakeSwap V3)' : ''}`);
     } else {
       this.executor = null;
       console.log("⚠️  No contract address — Monitor-only mode (no execution)");
@@ -781,19 +801,33 @@ class FlashloanBot {
       const step0 = opportunity.steps[0];
       const step1 = opportunity.steps[1];
       const flashAmount = opportunity.flashAmount;
-      const decimals = this.config.tokenPairs?.[0]?.decimals || 18;
-      const flashAmountFloat = parseFloat(ethers.formatUnits(flashAmount, decimals));
+      const decimalsA = this.config.tokenPairs?.[0]?.decimals || 18;
+      const flashAmountFloat = parseFloat(ethers.formatUnits(flashAmount, decimalsA));
+
+      // Lookup tokenB decimals dynamically (don't assume 6 for USDC — varies by chain/token)
+      let decimalsB = 18;
+      try {
+        if (step0?.tokenOut) {
+          const tokenContract = new ethers.Contract(step0.tokenOut, ERC20_ABI, this.provider);
+          decimalsB = await tokenContract.decimals();
+          decimalsB = Number(decimalsB);
+        }
+      } catch (_) {
+        // Fallback: check known stablecoin patterns
+        const pairName = this.config.tokenPairs?.[0]?.name || '';
+        decimalsB = /USDC|USDT/.test(pairName) ? 6 : 18;
+      }
 
       // Real price = amountOut / amountIn (from actual DEX quotes)
       let buyPrice = 0;
       let sellPrice = 0;
       if (step0?.expectedOut && flashAmountFloat > 0) {
-        const outFloat0 = parseFloat(ethers.formatUnits(step0.expectedOut, 6)); // USDC = 6 decimals
+        const outFloat0 = parseFloat(ethers.formatUnits(step0.expectedOut, decimalsB));
         buyPrice = outFloat0 / flashAmountFloat; // price of tokenA in tokenB
       }
       if (step1?.expectedOut && step0?.expectedOut) {
-        const inFloat1 = parseFloat(ethers.formatUnits(step0.expectedOut, 6));
-        const outFloat1 = parseFloat(ethers.formatUnits(step1.expectedOut, decimals));
+        const inFloat1 = parseFloat(ethers.formatUnits(step0.expectedOut, decimalsB));
+        const outFloat1 = parseFloat(ethers.formatUnits(step1.expectedOut, decimalsA));
         if (inFloat1 > 0) sellPrice = inFloat1 / outFloat1; // reverse price
       }
       // Fallback if price calculation failed

@@ -273,7 +273,8 @@ function loadConfig() {
   if (fs.existsSync(ENV_PATH)) {
     const env = fs.readFileSync(ENV_PATH, "utf8");
     cfg.privateKeySet = /PRIVATE_KEY=0x[a-fA-F0-9]{64}/.test(env);
-    cfg.rpcUrlSet = /ARBITRUM_RPC_URL=https?:\/\/.+/.test(env);
+    // Check RPC URL for any configured chain
+    cfg.rpcUrlSet = /(ARBITRUM|BASE|POLYGON|BSC|AVAX|MANTLE|SCROLL)_RPC_URL=https?:\/\/.+/.test(env);
   }
   return cfg;
 }
@@ -610,7 +611,11 @@ app.get("/api/state", (req, res) => {
     config: {
       ...config,
       privateKeySet: !!envVars.PRIVATE_KEY && envVars.PRIVATE_KEY.length > 10,
-      rpcUrlSet: !!envVars.ARBITRUM_RPC_URL && envVars.ARBITRUM_RPC_URL.startsWith("http"),
+      rpcUrlSet: (() => {
+        const rpcMap = { arbitrum: "ARBITRUM_RPC_URL", arbitrumSepolia: "ARBITRUM_RPC_URL", base: "BASE_RPC_URL", baseSepolia: "BASE_RPC_URL", polygon: "POLYGON_RPC_URL", bsc: "BSC_RPC_URL", avalanche: "AVAX_RPC_URL", mantle: "MANTLE_RPC_URL", scroll: "SCROLL_RPC_URL" };
+        const key = rpcMap[config.chain] || "ARBITRUM_RPC_URL";
+        return !!envVars[key] && envVars[key].startsWith("http");
+      })(),
     },
     bots: getBotStatuses(),
     stats,

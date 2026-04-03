@@ -197,9 +197,13 @@ contract FlashloanArbitrageBSC is Ownable, ReentrancyGuard {
             (address, uint256, bytes)
         );
 
-        // Verify caller la PancakeSwap V3 Pool hop le
-        // (Khong the verify chinh xac pool address trong callback,
-        //  nhung chi owner moi co the goi executeArbitrage)
+        // Verify caller is a legitimate PancakeSwap V3 Pool
+        // Reconstruct expected pool address from factory and validate
+        address token0 = IPancakeV3Pool(msg.sender).token0();
+        address token1 = IPancakeV3Pool(msg.sender).token1();
+        uint24 poolFee = IPancakeV3Pool(msg.sender).fee();
+        address expectedPool = pancakeFactory.getPool(token0, token1, poolFee);
+        require(msg.sender == expectedPool, "Unauthorized: caller is not a valid PancakeSwap V3 Pool");
 
         // Decode swap steps
         SwapStep[] memory steps = abi.decode(params, (SwapStep[]));

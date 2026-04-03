@@ -1221,7 +1221,7 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,
       <button class="btn btn-ghost btn-sm" onclick="exportSimCSV()">Export CSV</button>
     </div>
   </div>
-  <div class="page-desc">Paper trading results — bot tìm cơ hội thật, giả lập giao dịch theo tham số đã đặt. Đánh giá hiệu quả trước khi giao dịch thật.</div>
+  <div class="page-desc">Paper trading results — the bot scans real market data and simulates trades based on your configured parameters. Evaluate performance before going live.</div>
 
   <div class="g4" style="margin-bottom:16px">
     <div class="kpi" style="border-color:var(--yellow)">
@@ -1509,7 +1509,7 @@ async function onSetupChainChange(){
   $('inRPC').value='';
   _applySetupChain(chain);
   // Save the selected chain to config
-  const res=await apiCall('config','POST',{chain:chain,chains:[chain]});
+  const res=await apiCall('config','POST',{chain:chain});
   if(res&&res.success){
     state.config=res.config||{...state.config,chain:chain};
     renderContractsTable();
