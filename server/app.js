@@ -1056,7 +1056,10 @@ function parseLogForStats(line) {
   if (/found \d+ opportunit/i.test(line)) stats.opportunitiesFound++;
   if (lower.includes("[trade] executed") || lower.includes("transaction sent:")) stats.tradesExecuted++;
 
-  // Parse paper (simulated) trades
+  // Parse paper (simulated) trades — skip unprofitable ones
+  if (line.startsWith("[PAPER] SKIP")) {
+    return; // Net loss after gas — do not record
+  }
   if (line.startsWith("[PAPER]")) {
     const trade = {
       id: Date.now() + Math.random(),

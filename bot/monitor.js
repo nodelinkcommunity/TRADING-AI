@@ -797,7 +797,12 @@ class FlashloanBot {
       const isPaperMode = process.env.PAPER_TRADING === "true" || !this.config.autoExecute;
       const aiApproved = !aiAnalysis || aiAnalysis.shouldExecute;
 
-      if (best.profitBps >= effectiveMinProfit) {
+      // Add gas buffer: typical Arbitrum gas ~$1-2 on $50K volume = ~2-4 bps
+      // Require gross profit to exceed minProfit + estimated gas overhead
+      const gasBpsBuffer = 5; // conservative 5 bps for gas costs
+      const gateMinProfit = effectiveMinProfit + gasBpsBuffer;
+
+      if (best.profitBps >= gateMinProfit) {
         if (isPaperMode) {
           // Paper Trading: simulate without executing on-chain
           await this.simulatePaperTrade(best, aiAnalysis);
