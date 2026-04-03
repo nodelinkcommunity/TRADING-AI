@@ -471,6 +471,8 @@ class FlashloanBot {
       tradesExecuted: 0,
       totalProfit: 0n,
       startTime: null,
+      paperTrades: 0,
+      paperProfit: 0,
     };
   }
 
@@ -645,6 +647,11 @@ class FlashloanBot {
         }
       }
 
+      // Paper Trading: simulate without executing on-chain
+      if (best.profitBps >= this.config.minProfitBps) {
+        await this.simulatePaperTrade(best, aiAnalysis);
+      }
+
       // Thuc hien neu vuot nguong (with AI gate when available)
       const aiApproved = !aiAnalysis || aiAnalysis.shouldExecute;
       if (this.executor && this.config.autoExecute && best.profitBps >= this.config.minProfitBps && aiApproved) {
@@ -672,6 +679,54 @@ class FlashloanBot {
     }
   }
 
+  async simulatePaperTrade(opportunity, aiAnalysis) {
+    try {
+      const feeData = await this.provider.getFeeData();
+      const gasPrice = feeData.gasPrice || 0n;
+      const estimatedGas = 350000n; // typical flashloan arb gas
+      const gasCostWei = gasPrice * estimatedGas;
+      const gasCostEth = parseFloat(ethers.formatEther(gasCostWei));
+
+      // Get ETH price estimate (use default, will be refined with oracle data)
+      const ethPriceUsd = 3500;
+      const gasCostUsd = gasCostEth * ethPriceUsd;
+
+      // For paper trading, use configured flash amount in USD
+      const volumeUsd = this.config.flashAmountUsd || 50000;
+
+      // Scale profit based on flash amount
+      const profitBps = opportunity.profitBps;
+      const grossProfitUsd = (volumeUsd * profitBps) / 10000;
+      const netProfitUsd = grossProfitUsd - gasCostUsd;
+
+      // Simulate buy/sell prices
+      const midPrice = ethPriceUsd;
+      const spread = (midPrice * profitBps) / 10000;
+      const buyPrice = midPrice - spread / 2;
+      const sellPrice = midPrice + spread / 2;
+
+      // Get pair name
+      const pair = this.config.tokenPairs?.[0]?.name?.split(' ')[0] || 'WETH/USDC';
+      const chain = this.config.chain || 'arbitrumSepolia';
+      const aiScore = aiAnalysis?.score || 0;
+      const strategy = opportunity.type === 'TRIANGULAR' ? 'triangular' : 'dexArbitrage';
+
+      // Determine success: net profit > 0
+      const success = netProfitUsd > 0;
+
+      // Output structured log for server to parse
+      console.log(`[PAPER] ${success ? 'PROFIT' : 'LOSS'} | strategy:${strategy} | pair:${pair} | chain:${chain} | volume:${volumeUsd.toFixed(2)} | buyPrice:${buyPrice.toFixed(2)} | sellPrice:${sellPrice.toFixed(2)} | gasCost:${gasCostUsd.toFixed(4)} | profit:${netProfitUsd.toFixed(4)} | profitBps:${profitBps} | aiScore:${aiScore} | steps:${opportunity.steps.map(s => s.dex).join('>')} | dexBuy:${opportunity.steps[0]?.dex || ''} | dexSell:${opportunity.steps[1]?.dex || ''}`);
+
+      this.stats.paperTrades = (this.stats.paperTrades || 0) + 1;
+      this.stats.paperProfit = (this.stats.paperProfit || 0) + netProfitUsd;
+
+      return { success, netProfitUsd, gasCostUsd, profitBps };
+    } catch (err) {
+      console.warn(`[PAPER] Simulation error: ${err.message}`);
+      return null;
+    }
+  }
+
   async start() {
     await this.initialize();
 
@@ -682,6 +737,7 @@ class FlashloanBot {
     console.log(`Scan interval: ${this.config.scanIntervalMs}ms`);
     console.log(`Min profit: ${this.config.minProfitBps} bps`);
     console.log(`Auto execute: ${this.config.autoExecute}`);
+    console.log(`Paper trading: ON`);
     console.log("Press Ctrl+C to stop\n");
 
     // Signal handlers
@@ -727,6 +783,8 @@ class FlashloanBot {
     console.log(`Scans: ${this.stats.scansCompleted}`);
     console.log(`Opportunities: ${this.stats.opportunitiesFound}`);
     console.log(`Trades: ${this.stats.tradesExecuted}`);
+    console.log(`Paper Trades: ${this.stats.paperTrades}`);
+    console.log(`Paper Profit: $${this.stats.paperProfit.toFixed(4)}`);
     console.log("====================================\n");
 
     process.exit(0);

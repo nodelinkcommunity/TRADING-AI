@@ -50,6 +50,7 @@ const DEFAULT_CONFIG = {
   contractAddress: "",
 
   // Trading parameters
+  paperTrading: true,
   autoExecute: false,
   minProfitBps: 15,
   maxSlippageBps: 50,
@@ -145,6 +146,9 @@ let tradeStats = {
   todayProfitUsd: 0,
   streakWins: 0,
   streakLosses: 0,
+  paperTrades: 0,
+  paperProfitUsd: 0,
+  paperWinRate: 0,
   byStrategy: {},
   byChain: {},
   byHour: {},
@@ -161,13 +165,22 @@ function recalcStats() {
     avgProfitPerTrade: 0, totalVolumeUsd: 0,
     todayTrades: 0, todayProfitUsd: 0,
     streakWins: 0, streakLosses: 0,
+    paperTrades: 0, paperProfitUsd: 0, paperWinRate: 0,
     byStrategy: {}, byChain: {}, byHour: {},
   };
 
   let currentStreak = 0;
   let lastWasWin = null;
+  let paperWins = 0;
 
   for (const t of tradeHistory) {
+    // Count paper trades separately
+    if (t.paper) {
+      tradeStats.paperTrades++;
+      tradeStats.paperProfitUsd += (t.profitUsd || 0);
+      if (t.success) paperWins++;
+    }
+
     tradeStats.totalTrades++;
     const profit = t.profitUsd || 0;
     const gasCost = t.gasCostUsd || 0;
@@ -223,6 +236,7 @@ function recalcStats() {
   tradeStats.netProfitUsd = tradeStats.totalProfitUsd - tradeStats.totalGasCostUsd;
   tradeStats.winRate = tradeStats.totalTrades > 0 ? (tradeStats.successfulTrades / tradeStats.totalTrades * 100) : 0;
   tradeStats.avgProfitPerTrade = tradeStats.totalTrades > 0 ? (tradeStats.netProfitUsd / tradeStats.totalTrades) : 0;
+  tradeStats.paperWinRate = tradeStats.paperTrades > 0 ? (paperWins / tradeStats.paperTrades * 100) : 0;
 }
 
 // Recalculate on startup
@@ -424,6 +438,60 @@ function parseLogForStats(line) {
   if (lower.includes("scan")) stats.scansCompleted++;
   if (lower.includes("opportunit") || lower.includes("found")) stats.opportunitiesFound++;
   if (lower.includes("success") || lower.includes("executed") || lower.includes("trade")) stats.tradesExecuted++;
+
+  // Parse paper (simulated) trades
+  if (line.startsWith("[PAPER]")) {
+    const trade = {
+      id: Date.now() + Math.random(),
+      timestamp: Date.now(),
+      paper: true,
+      strategy: "dexArbitrage",
+      chain: config.chains?.[0] || "arbitrumSepolia",
+      pair: "WETH/USDC",
+      type: "SIMPLE",
+      volumeUsd: config.flashAmountUsd || 50000,
+      buyPrice: 0,
+      sellPrice: 0,
+      gasCostUsd: 0,
+      profitUsd: 0,
+      profitBps: 0,
+      success: line.includes("PROFIT"),
+      txHash: "paper-" + Date.now().toString(16),
+      gasUsed: 350000,
+      blockNumber: 0,
+      aiScore: 0,
+    };
+
+    // Parse structured fields
+    const fields = line.split("|").map(f => f.trim());
+    for (const field of fields) {
+      const [key, val] = field.split(":").map(s => s.trim());
+      if (!key || !val) continue;
+      switch(key) {
+        case "strategy": trade.strategy = val; break;
+        case "pair": trade.pair = val; break;
+        case "chain": trade.chain = val; break;
+        case "volume": trade.volumeUsd = parseFloat(val) || 0; break;
+        case "buyPrice": trade.buyPrice = parseFloat(val) || 0; break;
+        case "sellPrice": trade.sellPrice = parseFloat(val) || 0; break;
+        case "gasCost": trade.gasCostUsd = parseFloat(val) || 0; break;
+        case "profit": trade.profitUsd = parseFloat(val) || 0; break;
+        case "profitBps": trade.profitBps = parseInt(val) || 0; break;
+        case "aiScore": trade.aiScore = parseInt(val) || 0; break;
+        case "steps": trade.steps = val; break;
+        case "dexBuy": trade.dexBuy = val; break;
+        case "dexSell": trade.dexSell = val; break;
+      }
+    }
+
+    tradeHistory.unshift(trade);
+    if (tradeHistory.length > 10000) tradeHistory = tradeHistory.slice(0, 10000);
+    saveTrades();
+    recalcStats();
+    io.emit("tradeStats", tradeStats);
+    io.emit("newTrade", trade);
+    return;
+  }
 
   // Parse trade execution logs from bot output
   if (line.includes("[TRADE] EXECUTED") || (lower.includes("transaction sent:") && lower.includes("success"))) {
@@ -835,6 +903,7 @@ app.get("/api/trades", (req, res) => {
   let filtered = tradeHistory;
   if (filter === "success") filtered = filtered.filter(t => t.success);
   else if (filter === "failed") filtered = filtered.filter(t => !t.success);
+  else if (filter === "paper") filtered = filtered.filter(t => t.paper);
   if (strategy) filtered = filtered.filter(t => t.strategy === strategy);
 
   const total = filtered.length;

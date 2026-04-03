@@ -309,6 +309,16 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,
       <div class="stat-value neutral" id="statActiveChains">0</div>
       <div class="stat-sub" id="statActiveChainsSub">Trading networks</div>
     </div>
+    <div class="stat-card" style="border-color:rgba(255,193,7,0.3)">
+      <div class="stat-label" style="color:var(--yellow)">PAPER TRADES</div>
+      <div class="stat-value neutral" id="statPaperTrades" style="color:var(--yellow)">0</div>
+      <div class="stat-sub" id="statPaperTradesSub">Simulated trades</div>
+    </div>
+    <div class="stat-card" style="border-color:rgba(255,193,7,0.3)">
+      <div class="stat-label" style="color:var(--yellow)">PAPER PROFIT</div>
+      <div class="stat-value" id="statPaperProfit" style="color:var(--yellow)">$0.00</div>
+      <div class="stat-sub" id="statPaperProfitSub">Win rate: 0%</div>
+    </div>
   </div>
 
   <div class="g4" style="margin-bottom:20px">
@@ -519,6 +529,14 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,
             <label class="chain-check"><input type="checkbox" value="scroll"> <span class="chain-tag main">Scroll</span></label>
           </div>
           <div id="gasWarning" style="margin-top:8px;font-size:11px;color:var(--yellow);display:none"></div>
+        </div>
+        <div class="fg" style="background:rgba(255,193,7,0.1);padding:12px;border-radius:8px;border:1px solid rgba(255,193,7,0.3)">
+          <label class="fl" style="color:var(--yellow)">Paper Trading (Simulation Mode)</label>
+          <div style="display:flex;align-items:center;gap:10px">
+            <label class="toggle"><input type="checkbox" id="cfgPaperTrading" checked><span></span></label>
+            <span id="paperLabel" style="font-size:11px;font-weight:600;color:var(--yellow)">ON &mdash; Simulating Trades</span>
+          </div>
+          <div class="fh" style="color:var(--yellow);opacity:0.8">Bot scans for real opportunities, simulates the trade, and calculates profit/loss without executing on-chain. Enable this to evaluate performance before going live.</div>
         </div>
         <div class="fg">
           <label class="fl">Auto Execute Trades</label>
@@ -1137,6 +1155,7 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,
       <button class="tab-btn active" onclick="filterTrades('all',this)">All</button>
       <button class="tab-btn" onclick="filterTrades('success',this)">Successful</button>
       <button class="tab-btn" onclick="filterTrades('failed',this)">Failed</button>
+      <button class="tab-btn" onclick="filterTrades('paper',this)" style="color:var(--yellow)">Paper</button>
     </div>
     <select id="tradeStrategyFilter" onchange="loadTrades(1)">
       <option value="">All Strategies</option>
@@ -1393,6 +1412,8 @@ function updateUI(){
     cb.onchange=updateGasWarning;
   });
   updateGasWarning();
+  $('cfgPaperTrading').checked=c.paperTrading!==false;
+  updatePaperLabel();
   $('cfgAutoExec').checked=c.autoExecute;
   updateAutoLabel();
   $('cfgProfit').value=c.minProfitBps;$('vProfit').textContent=c.minProfitBps;
@@ -1424,6 +1445,13 @@ function updateUI(){
   // Stats
   updateStats(state.stats);
 }
+
+function updatePaperLabel(){
+  const on=$('cfgPaperTrading').checked;
+  $('paperLabel').textContent=on?'ON \u2014 Simulating Trades':'OFF \u2014 Paper Trading Disabled';
+  $('paperLabel').style.color=on?'var(--yellow)':'var(--text3)';
+}
+$('cfgPaperTrading').addEventListener('change',updatePaperLabel);
 
 function updateAutoLabel(){
   const on=$('cfgAutoExec').checked;
@@ -1557,6 +1585,7 @@ async function saveConfig(btn){
     const res=await apiCall('config','POST',{
       chain:chains[0],
       chains:chains,
+      paperTrading:$('cfgPaperTrading').checked,
       autoExecute:$('cfgAutoExec').checked,
       minProfitBps:parseInt($('cfgProfit').value),
       maxSlippageBps:parseInt($('cfgSlip').value),
@@ -1944,6 +1973,14 @@ function updateDashboardStats(s){
   el('statActiveChains').textContent=chainCount;
   el('statActiveChainsSub').textContent=chainCount===1?'1 chain':chainCount+' chains';
 
+  // Paper trading stats
+  el('statPaperTrades').textContent=s.paperTrades||0;
+  el('statPaperTradesSub').textContent='Simulated trades';
+  const pp=el('statPaperProfit');
+  pp.textContent=fmtUsd(s.paperProfitUsd||0);
+  pp.style.color=(s.paperProfitUsd||0)>=0?'var(--yellow)':'var(--red)';
+  el('statPaperProfitSub').textContent='Win rate: '+(s.paperWinRate||0).toFixed(1)+'%';
+
   // Trade summary bar
   const se=id=>$(id);
   se('tsSummaryTotal').textContent=s.totalTrades||0;
@@ -1990,8 +2027,9 @@ function renderTradeTable(trades,total,page,totalPages){
   const startNum=(page-1)*20;
   body.innerHTML=trades.map((t,i)=>{
     const profitColor=t.profitUsd>=0?'var(--green)':'var(--red)';
-    const statusBadge=t.success?'<span class="badge badge-green">Success</span>':'<span class="badge badge-red">Failed</span>';
-    const txLink=t.txHash?'<a href="'+getExplorerUrl(t.chain,t.txHash)+'" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none;font-family:monospace;font-size:11px" title="'+t.txHash+'">'+truncHash(t.txHash)+'</a>':'--';
+    const paperBadge=t.paper?'<span class="badge badge-yellow" style="margin-right:4px">PAPER</span>':'';
+    const statusBadge=t.success?paperBadge+'<span class="badge badge-green">Success</span>':paperBadge+'<span class="badge badge-red">Failed</span>';
+    const txLink=t.txHash&&!t.txHash.startsWith('paper-')?'<a href="'+getExplorerUrl(t.chain,t.txHash)+'" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none;font-family:monospace;font-size:11px" title="'+t.txHash+'">'+truncHash(t.txHash)+'</a>':(t.paper?'<span style="color:var(--yellow);font-size:10px">simulated</span>':'--');
     const stratColor=stratColors[t.strategy]||'var(--text2)';
 
     return '<tr>'+
