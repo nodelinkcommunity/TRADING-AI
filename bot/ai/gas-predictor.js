@@ -10,6 +10,8 @@ class GasPredictor {
     this.history = [];      // {gasPrice, maxFee, timestamp}
     this.maxHistory = 500;
     this.predictions = [];
+    this.sampleIntervalSec = 3; // default, updated on each sample
+    this.lastSampleTime = null;
   }
 
   /**
@@ -18,11 +20,18 @@ class GasPredictor {
   async sample() {
     try {
       const feeData = await this.provider.getFeeData();
+      const now = Date.now();
+
+      // Track actual sample interval
+      if (this.lastSampleTime) {
+        this.sampleIntervalSec = (now - this.lastSampleTime) / 1000;
+      }
+      this.lastSampleTime = now;
 
       this.history.push({
         gasPrice: Number(feeData.gasPrice || 0),
         maxFee: Number(feeData.maxFeePerGas || 0),
-        timestamp: Date.now(),
+        timestamp: now,
       });
 
       if (this.history.length > this.maxHistory) {
@@ -69,8 +78,9 @@ class GasPredictor {
       const trendSlope = (recent[recent.length - 1].gasPrice - recent[0].gasPrice) / recent.length;
 
       // Predict: average + trend extrapolation
-      // ~3s per sample interval
-      const predicted = avg + trendSlope * (secondsAhead / 3);
+      // Use actual sample interval instead of hardcoded 3s
+      const samplesAhead = secondsAhead / (this.sampleIntervalSec || 3);
+      const predicted = avg + trendSlope * samplesAhead;
 
       // Confidence based on variance (lower variance = higher confidence)
       const variance = recent.reduce((s, h) => s + (h.gasPrice - avg) ** 2, 0) / recent.length;

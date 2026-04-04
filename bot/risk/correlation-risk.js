@@ -54,7 +54,7 @@ class CorrelationRisk {
 
       if (concentration > this.config.maxExposurePerToken && totalTrades >= 5) {
         return {
-          allowed: true,
+          allowed: false,
           reason: `High token concentration: ${(concentration * 100).toFixed(0)}%`,
           adjustments: { reduceSize: 0.5, reason: `Token ${token.slice(0, 10)}... at ${(concentration * 100).toFixed(0)}% concentration` },
         };

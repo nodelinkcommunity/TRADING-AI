@@ -54,7 +54,7 @@ class RiskEngine {
    */
   assess(opportunity, marketState) {
     if (!this.isInitialized) {
-      return { allowed: true, reasoning: "Risk engine not initialized", adjustments: {} };
+      return { allowed: false, reasoning: "Risk engine not initialized", adjustments: {} };
     }
 
     const assessment = {

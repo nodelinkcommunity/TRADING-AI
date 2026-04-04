@@ -15,6 +15,7 @@ class WhaleTracker {
     this.knownWhales = new Set();
     this.isMonitoring = false;
     this._listeners = [];
+    this.accumulationTracker = new Map();
   }
 
   /**
@@ -91,10 +92,37 @@ class WhaleTracker {
   }
 
   /**
+   * Clean up accumulation entries older than 2 hours
+   */
+  _cleanupAccumulation() {
+    const cutoff = Date.now() - 2 * 3600 * 1000; // 2 hours
+    for (const [key, data] of this.accumulationTracker.entries()) {
+      if (data.lastSeen < cutoff) {
+        this.accumulationTracker.delete(key);
+      }
+    }
+  }
+
+  /**
+   * Track accumulation patterns for a whale address
+   */
+  _trackAccumulation(swap) {
+    if (!swap || !swap.from) return;
+    const key = swap.from.toLowerCase();
+    const existing = this.accumulationTracker.get(key) || { count: 0, totalValue: 0, lastSeen: 0 };
+    existing.count++;
+    existing.totalValue += swap.valueEth || 0;
+    existing.lastSeen = Date.now();
+    this.accumulationTracker.set(key, existing);
+  }
+
+  /**
    * Analyze recent whale activity
    */
   analyzeActivity() {
     try {
+      // Clean up old accumulation entries to prevent memory leak
+      this._cleanupAccumulation();
       const now = Date.now();
       const last5min = this.recentSwaps.filter(s => now - s.timestamp < 300000);
       const last1min = this.recentSwaps.filter(s => now - s.timestamp < 60000);
